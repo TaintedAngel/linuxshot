@@ -2,6 +2,7 @@
 
 import base64
 import os
+import time
 from dataclasses import dataclass
 
 import requests
@@ -60,27 +61,46 @@ def upload_to_imgur(filepath: str) -> UploadResult:
         "name": os.path.basename(filepath),
     }
 
-    try:
-        response = requests.post(
-            IMGUR_API_URL,
-            headers=headers,
-            data=payload,
-            timeout=30,
-        )
-    except requests.ConnectionError:
-        raise UploadError("No internet connection. Upload failed.")
-    except requests.Timeout:
-        raise UploadError("Upload timed out. Try again later.")
-    except requests.RequestException as e:
-        raise UploadError(f"Upload request failed: {e}")
+    last_error = ""
+    response = None
+    # Retry transient failures (network hiccups, 5xx responses)
+    for attempt in range(1, 4):
+        try:
+            response = requests.post(
+                IMGUR_API_URL,
+                headers=headers,
+                data=payload,
+                timeout=30,
+            )
+        except requests.ConnectionError:
+            last_error = "No internet connection. Upload failed."
+        except requests.Timeout:
+            last_error = "Upload timed out. Try again later."
+        except requests.RequestException as e:
+            last_error = f"Upload request failed: {e}"
+        else:
+            if response.status_code == 200:
+                break
+            if response.status_code >= 500 and attempt < 3:
+                # Transient server issue; retry with short backoff
+                time.sleep(attempt)
+                continue
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("data", {}).get("error", "Unknown error")
+            except Exception:
+                error_msg = f"HTTP {response.status_code}"
+            last_error = f"Imgur upload failed: {error_msg}"
+            break
+
+        if attempt < 3:
+            time.sleep(attempt)
+
+    if response is None:
+        raise UploadError(last_error or "Upload request failed.")
 
     if response.status_code != 200:
-        try:
-            error_data = response.json()
-            error_msg = error_data.get("data", {}).get("error", "Unknown error")
-        except Exception:
-            error_msg = f"HTTP {response.status_code}"
-        raise UploadError(f"Imgur upload failed: {error_msg}")
+        raise UploadError(last_error or f"Imgur upload failed: HTTP {response.status_code}")
 
     try:
         data = response.json()["data"]

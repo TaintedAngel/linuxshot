@@ -239,6 +239,7 @@ def _cmd_gui() -> int:
 
 def _cmd_check() -> int:
     from .utils import check_dependencies, get_display_server
+    from .capture import _detect_wayland_backend
 
     ds = get_display_server()
     print(f"Display server: {ds.value}\n")
@@ -246,10 +247,15 @@ def _cmd_check() -> int:
     deps = check_dependencies()
 
     if ds.value == "wayland":
+        backend = _detect_wayland_backend()
+        print(f"Wayland backend: {backend}\n")
         print("Wayland tools:")
-        _print_dep("  grim", deps["grim"], "Screenshot capture")
-        _print_dep("  slurp", deps["slurp"], "Region selection")
+        _print_dep("  spectacle", deps["spectacle"], "KDE screenshot tool")
+        _print_dep("  gnome-screenshot", deps["gnome-screenshot"], "GNOME screenshot tool")
+        _print_dep("  grim", deps["grim"], "wlroots screenshot capture")
+        _print_dep("  slurp", deps["slurp"], "wlroots region selection")
         _print_dep("  wl-copy", deps["wl-copy"], "Clipboard (wl-clipboard)")
+        _print_dep("  wl-paste", deps["wl-paste"], "Clipboard image retrieval")
     else:
         print("X11 tools:")
         _print_dep("  maim", deps["maim"], "Screenshot capture")
@@ -268,7 +274,16 @@ def _cmd_check() -> int:
     # Summary
     all_ok = True
     if ds.value == "wayland":
-        required = ["grim", "slurp", "wl-copy"]
+        backend = _detect_wayland_backend()
+        if backend == "spectacle":
+            required = ["spectacle", "wl-copy", "wl-paste"]
+        elif backend == "gnome-screenshot":
+            required = ["gnome-screenshot", "wl-copy"]
+        elif backend == "grim":
+            required = ["grim", "slurp", "wl-copy"]
+        else:
+            required = []
+            all_ok = False
     else:
         required = ["maim", "xclip"]
     for dep in required:

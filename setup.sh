@@ -70,9 +70,11 @@ detect_display() {
 
 DISTRO=$(detect_distro)
 DISPLAY_SERVER=$(detect_display)
+DESKTOP_ENV=$(echo "${XDG_CURRENT_DESKTOP:-}" | tr '[:upper:]' '[:lower:]')
 
 info "Detected distro family: ${BOLD}${DISTRO}${RESET}"
 info "Detected display server: ${BOLD}${DISPLAY_SERVER}${RESET}"
+info "Detected desktop environment: ${BOLD}${XDG_CURRENT_DESKTOP:-unknown}${RESET}"
 echo ""
 
 # ── Install system dependencies ────────────────────────────────────
@@ -88,6 +90,9 @@ install_deps_arch() {
     # Display server specific
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(grim slurp wl-clipboard)
+        if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+            pkgs+=(spectacle)
+        fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(maim xdotool xclip)
@@ -102,6 +107,9 @@ install_deps_arch() {
         sudo pacman -S --needed --noconfirm python python-pip python-gobject python-pillow python-requests gtk3 libnotify
         if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             sudo pacman -S --needed --noconfirm grim slurp wl-clipboard
+            if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+                sudo pacman -S --needed --noconfirm spectacle
+            fi
         fi
         if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             sudo pacman -S --needed --noconfirm maim xdotool xclip
@@ -121,6 +129,9 @@ install_deps_debian() {
 
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(grim slurp wl-clipboard)
+        if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+            pkgs+=(spectacle)
+        fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(maim xdotool xclip)
@@ -142,6 +153,9 @@ install_deps_fedora() {
 
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(grim slurp wl-clipboard)
+        if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+            pkgs+=(spectacle)
+        fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(maim xdotool xclip)
@@ -159,6 +173,9 @@ install_deps_suse() {
         gtk3 libnotify-tools
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo zypper install -y grim slurp wl-clipboard
+        if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+            sudo zypper install -y spectacle
+        fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo zypper install -y maim xdotool xclip
@@ -171,6 +188,9 @@ install_deps_void() {
         gtk+3 libnotify
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo xbps-install -S grim slurp wl-clipboard
+        if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+            sudo xbps-install -S spectacle
+        fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo xbps-install -S maim xdotool xclip
@@ -189,6 +209,9 @@ case "$DISTRO" in
         echo "  GTK3, libnotify (notify-send)"
         if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             echo "  Wayland: grim, slurp, wl-clipboard"
+            if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+                echo "  KDE Wayland: spectacle"
+            fi
         fi
         if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             echo "  X11: maim, xdotool, xclip"

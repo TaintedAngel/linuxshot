@@ -1,4 +1,4 @@
-"""Screen capture engine supporting Wayland and X11."""
+"""Screen capture engine supporting Wayland (KDE, GNOME, wlroots) and X11."""
 
 import json
 import os
@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 
 from .config import Config
-from .utils import DisplayServer, get_display_server, run_cmd
+from .utils import DisplayServer, get_display_server, has_command, run_cmd
 
 
 class CaptureMode(Enum):
@@ -35,12 +35,47 @@ class CaptureResult:
         return f"CaptureResult({self.filepath!r}, mode={self.mode.value})"
 
 
+def _detect_wayland_backend() -> str:
+    """Detect which Wayland capture backend to use.
+
+    Returns one of: 'spectacle', 'gnome-screenshot', 'grim', or 'none'.
+    """
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+
+    # KDE Plasma → Spectacle
+    if "kde" in desktop or "plasma" in desktop:
+        if has_command("spectacle"):
+            return "spectacle"
+
+    # GNOME → gnome-screenshot
+    if "gnome" in desktop or "unity" in desktop or "cinnamon" in desktop:
+        if has_command("gnome-screenshot"):
+            return "gnome-screenshot"
+
+    # wlroots compositors (Hyprland, Sway, etc.) → grim
+    if has_command("grim"):
+        # Test if grim actually works (compositor supports wlr-screencopy)
+        test = run_cmd(["grim", "-", "-t", "ppm"])
+        if test.returncode == 0:
+            return "grim"
+
+    # Fallback: try spectacle or gnome-screenshot even if DE wasn't detected
+    if has_command("spectacle"):
+        return "spectacle"
+    if has_command("gnome-screenshot"):
+        return "gnome-screenshot"
+
+    return "none"
+
+
 class Capture:
-    """Handles screen capture on both Wayland and X11."""
+    """Handles screen capture on Wayland (KDE, GNOME, wlroots) and X11."""
 
     def __init__(self):
         self.display_server = get_display_server()
         self.config = Config.get()
+        if self.display_server == DisplayServer.WAYLAND:
+            self._wayland_backend = _detect_wayland_backend()
 
     def capture(self, mode: CaptureMode) -> CaptureResult | None:
         """Capture a screenshot using the specified mode.
@@ -66,7 +101,7 @@ class Capture:
             )
 
         if not success:
-            return None  # User cancelled (e.g. pressed Escape during region select)
+            return None  # User cancelled
 
         if not os.path.exists(output_path):
             raise CaptureError(f"Screenshot file was not created: {output_path}")
@@ -81,80 +116,175 @@ class Capture:
         filename = datetime.now().strftime(f"{pattern}.{ext}")
         return os.path.join(screenshot_dir, filename)
 
-    # ── Wayland capture (grim + slurp) ─────────────────────────────────
+    # ── Wayland capture (auto-detect backend) ────────────────────
 
     def _wayland_capture(self, mode: CaptureMode, output: str) -> bool:
+        backend = self._wayland_backend
+        if backend == "spectacle":
+            return self._spectacle_capture(mode, output)
+        elif backend == "gnome-screenshot":
+            return self._gnome_capture(mode, output)
+        elif backend == "grim":
+            return self._grim_capture(mode, output)
+        else:
+            raise CaptureError(
+                "No supported screenshot tool found.\n"
+                "Install one of: spectacle (KDE), gnome-screenshot (GNOME), "
+                "or grim+slurp (wlroots compositors like Hyprland/Sway)."
+            )
+
+    # ── Spectacle (KDE Plasma) ─────────────────────────────
+
+    def _spectacle_capture(self, mode: CaptureMode, output: str) -> bool:
+        """Capture using KDE Spectacle CLI."""
+        # Region mode on some Spectacle/KDE versions is unreliable with -b/-o.
+        # So we use a two-step fallback:
+        # 1) Try direct file output.
+        # 2) If that fails, use clipboard mode and save clipboard image.
+        if mode == CaptureMode.REGION:
+            try:
+                direct = subprocess.run(
+                    ["spectacle", "-r", "-b", "-n", "-o", output],
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                )
+                if direct.returncode == 0 and os.path.exists(output) and os.path.getsize(output) > 0:
+                    return True
+            except subprocess.TimeoutExpired:
+                pass
+            except FileNotFoundError:
+                raise CaptureError("'spectacle' is required for KDE screenshot capture.")
+
+            # Fallback path: copy region to clipboard, then persist clipboard image
+            try:
+                clip = subprocess.run(
+                    ["spectacle", "-r", "-c"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                if clip.returncode != 0:
+                    return False
+                return self._save_wayland_clipboard_image(output)
+            except subprocess.TimeoutExpired:
+                return False
+            except FileNotFoundError:
+                raise CaptureError("'spectacle' is required for KDE screenshot capture.")
+
+        cmd = ["spectacle", "-b", "-n", "-o", output]
+        match mode:
+            case CaptureMode.FULLSCREEN:
+                cmd.append("-f")
+            case CaptureMode.WINDOW:
+                cmd.append("-a")
+            case _:
+                cmd.append("-f")
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0 and not os.path.exists(output):
+                return False
+            return os.path.exists(output) and os.path.getsize(output) > 0
+        except subprocess.TimeoutExpired:
+            return False
+        except FileNotFoundError:
+            raise CaptureError("'spectacle' is required for KDE screenshot capture.")
+
+    def _save_wayland_clipboard_image(self, output: str) -> bool:
+        """Persist clipboard image data to a PNG file."""
+        try:
+            with open(output, "wb") as f:
+                result = subprocess.run(
+                    ["wl-paste", "--type", "image/png"],
+                    stdout=f,
+                    stderr=subprocess.PIPE,
+                    timeout=10,
+                )
+            if result.returncode == 0 and os.path.getsize(output) > 0:
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+        # X11 fallback
+        try:
+            with open(output, "wb") as f:
+                result = subprocess.run(
+                    ["xclip", "-selection", "clipboard", "-t", "image/png", "-o"],
+                    stdout=f,
+                    stderr=subprocess.PIPE,
+                    timeout=10,
+                )
+            return result.returncode == 0 and os.path.getsize(output) > 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return False
+
+    # ── GNOME Screenshot ───────────────────────────────────
+
+    def _gnome_capture(self, mode: CaptureMode, output: str) -> bool:
+        """Capture using gnome-screenshot."""
+        cmd = ["gnome-screenshot"]
         match mode:
             case CaptureMode.REGION:
-                return self._wayland_region(output)
+                cmd.append("-a")
             case CaptureMode.FULLSCREEN:
-                return self._wayland_fullscreen(output)
+                pass  # Default is fullscreen
             case CaptureMode.WINDOW:
-                return self._wayland_window(output)
+                cmd.append("-w")
+        cmd.extend(["-f", output])
 
-    def _wayland_region(self, output: str) -> bool:
-        """Capture a user-selected region using slurp + grim."""
         try:
-            # slurp lets the user select a region
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            return result.returncode == 0 and os.path.exists(output)
+        except subprocess.TimeoutExpired:
+            return False
+        except FileNotFoundError:
+            raise CaptureError("'gnome-screenshot' is required for GNOME screenshot capture.")
+
+    # ── grim + slurp (wlroots: Hyprland, Sway, etc.) ────────────
+
+    def _grim_capture(self, mode: CaptureMode, output: str) -> bool:
+        match mode:
+            case CaptureMode.REGION:
+                return self._grim_region(output)
+            case CaptureMode.FULLSCREEN:
+                return self._grim_fullscreen(output)
+            case CaptureMode.WINDOW:
+                return self._grim_window(output)
+
+    def _grim_region(self, output: str) -> bool:
+        try:
             result = run_cmd(["slurp"])
             if result.returncode != 0:
-                return False  # User cancelled
+                return False
             region = result.stdout.strip()
             if not region:
                 return False
-
             result = run_cmd(["grim", "-g", region, output])
             return result.returncode == 0
         except FileNotFoundError:
-            raise CaptureError("'grim' and 'slurp' are required for Wayland region capture.")
+            raise CaptureError("'grim' and 'slurp' are required for wlroots region capture.")
 
-    def _wayland_fullscreen(self, output: str) -> bool:
-        """Capture the full screen using grim."""
+    def _grim_fullscreen(self, output: str) -> bool:
         try:
             result = run_cmd(["grim", output])
             return result.returncode == 0
         except FileNotFoundError:
-            raise CaptureError("'grim' is required for Wayland fullscreen capture.")
+            raise CaptureError("'grim' is required for wlroots fullscreen capture.")
 
-    def _wayland_window(self, output: str) -> bool:
-        """Capture the active window on Wayland.
-
-        Tries compositor-specific methods, then falls back to region select.
-        """
-        # Try Hyprland
+    def _grim_window(self, output: str) -> bool:
         geometry = self._hyprland_active_window_geometry()
+        if not geometry:
+            geometry = self._sway_active_window_geometry()
         if geometry:
             try:
                 result = run_cmd(["grim", "-g", geometry, output])
                 return result.returncode == 0
             except FileNotFoundError:
-                raise CaptureError("'grim' is required for Wayland capture.")
-
-        # Try Sway
-        geometry = self._sway_active_window_geometry()
-        if geometry:
-            try:
-                result = run_cmd(["grim", "-g", geometry, output])
-                return result.returncode == 0
-            except FileNotFoundError:
-                raise CaptureError("'grim' is required for Wayland capture.")
-
-        # Try KDE/GNOME via slurp with window hints
-        try:
-            # slurp can select visible windows when compositor supports it
-            result = run_cmd(["slurp"])
-            if result.returncode != 0:
-                return False
-            region = result.stdout.strip()
-            if not region:
-                return False
-            result = run_cmd(["grim", "-g", region, output])
-            return result.returncode == 0
-        except FileNotFoundError:
-            raise CaptureError("'grim' and 'slurp' are required for Wayland capture.")
+                raise CaptureError("'grim' is required for wlroots capture.")
+        return self._grim_region(output)
 
     def _hyprland_active_window_geometry(self) -> str | None:
-        """Get active window geometry from Hyprland."""
         try:
             result = run_cmd(["hyprctl", "activewindow", "-j"])
             if result.returncode != 0:
@@ -169,7 +299,6 @@ class Capture:
             return None
 
     def _sway_active_window_geometry(self) -> str | None:
-        """Get active window geometry from Sway."""
         try:
             result = run_cmd(["swaymsg", "-t", "get_tree"])
             if result.returncode != 0:
@@ -189,7 +318,6 @@ class Capture:
 
     @staticmethod
     def _find_sway_focused(node: dict) -> dict | None:
-        """Recursively find the focused node in a Sway tree."""
         if node.get("focused"):
             return node
         for child in node.get("nodes", []) + node.get("floating_nodes", []):
@@ -198,7 +326,7 @@ class Capture:
                 return result
         return None
 
-    # ── X11 capture (maim + xdotool) ──────────────────────────────────
+    # ── X11 capture (maim + xdotool) ──────────────────────────────
 
     def _x11_capture(self, mode: CaptureMode, output: str) -> bool:
         match mode:
@@ -210,7 +338,6 @@ class Capture:
                 return self._x11_window(output)
 
     def _x11_region(self, output: str) -> bool:
-        """Capture a user-selected region using maim -s."""
         try:
             result = run_cmd(["maim", "-s", output])
             return result.returncode == 0
@@ -218,7 +345,6 @@ class Capture:
             raise CaptureError("'maim' is required for X11 region capture.")
 
     def _x11_fullscreen(self, output: str) -> bool:
-        """Capture the full screen using maim."""
         try:
             result = run_cmd(["maim", output])
             return result.returncode == 0
@@ -226,18 +352,12 @@ class Capture:
             raise CaptureError("'maim' is required for X11 fullscreen capture.")
 
     def _x11_window(self, output: str) -> bool:
-        """Capture the active window using maim + xdotool."""
         try:
-            # Get active window ID
             result = run_cmd(["xdotool", "getactivewindow"])
             if result.returncode != 0:
-                # Fallback to region select
                 return self._x11_region(output)
             window_id = result.stdout.strip()
-
             result = run_cmd(["maim", "-i", window_id, output])
             return result.returncode == 0
         except FileNotFoundError:
-            raise CaptureError(
-                "'maim' and 'xdotool' are required for X11 window capture."
-            )
+            raise CaptureError("'maim' and 'xdotool' are required for X11 window capture.")

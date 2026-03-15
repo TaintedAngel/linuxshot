@@ -78,9 +78,12 @@ def check_dependencies() -> dict[str, bool]:
     """Check which capture/clipboard tools are available."""
     return {
         # Wayland
+        "spectacle": has_command("spectacle"),
+        "gnome-screenshot": has_command("gnome-screenshot"),
         "grim": has_command("grim"),
         "slurp": has_command("slurp"),
         "wl-copy": has_command("wl-copy"),
+        "wl-paste": has_command("wl-paste"),
         # X11
         "maim": has_command("maim"),
         "xdotool": has_command("xdotool"),
