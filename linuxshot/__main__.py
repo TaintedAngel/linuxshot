@@ -76,8 +76,8 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command is None:
-        parser.print_help()
-        return 0
+        # No command given → start the tray daemon (like ShareX)
+        return _cmd_tray()
 
     # ── Route commands ─────────────────────────────────────────────────
 

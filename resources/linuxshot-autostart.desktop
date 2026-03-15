@@ -6,5 +6,6 @@ Icon=camera-photo
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
-Keywords=screenshot;capture;upload;imgur;screen;
+X-GNOME-Autostart-enabled=true
 StartupNotify=false
+NoDisplay=true

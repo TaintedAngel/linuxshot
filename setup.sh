@@ -248,6 +248,15 @@ sed -i "s|Exec=linuxshot|Exec=$LINUXSHOT_BIN|g" "$DESKTOP_DIR/linuxshot.desktop"
 
 ok "Desktop file installed to $DESKTOP_DIR"
 
+# ── Install autostart entry ───────────────────────────────────────
+
+AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+mkdir -p "$AUTOSTART_DIR"
+cp "$SCRIPT_DIR/resources/linuxshot-autostart.desktop" "$AUTOSTART_DIR/linuxshot.desktop"
+sed -i "s|Exec=linuxshot|Exec=$LINUXSHOT_BIN|g" "$AUTOSTART_DIR/linuxshot.desktop"
+
+ok "Autostart entry installed — LinuxShot will start in system tray on login."
+
 # ── Create default config ─────────────────────────────────────────
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/linuxshot"
