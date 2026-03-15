@@ -81,6 +81,13 @@ def upload_to_imgur(filepath: str) -> UploadResult:
         else:
             if response.status_code == 200:
                 break
+            if response.status_code == 429:
+                last_error = (
+                    "Imgur rate limit reached for the current Client ID (HTTP 429). "
+                    "Set your own Imgur Client ID with: "
+                    "linuxshot config --set imgur_client_id YOUR_CLIENT_ID"
+                )
+                break
             if response.status_code >= 500 and attempt < 3:
                 # Transient server issue; retry with short backoff
                 time.sleep(attempt)
