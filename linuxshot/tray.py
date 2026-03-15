@@ -1,5 +1,6 @@
 """System tray icon for LinuxShot with ShareX-style menu."""
 
+import os
 import signal
 import sys
 import threading
@@ -11,6 +12,21 @@ from gi.repository import Gtk, GLib
 from .app import App
 from .capture import CaptureMode
 from .config import Config
+
+# Icon paths — try installed location first, fall back to source tree
+_ICON_SEARCH_PATHS = [
+    os.path.expanduser("~/.local/share/icons/hicolor/scalable/apps/linuxshot.svg"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "resources", "icons", "linuxshot.svg"),
+    "/usr/share/icons/hicolor/scalable/apps/linuxshot.svg",
+]
+
+def _find_icon() -> str:
+    """Return the best available icon name or absolute path."""
+    for path in _ICON_SEARCH_PATHS:
+        if os.path.isfile(path):
+            return path
+    return "camera-photo"  # fall back to theme icon
 
 # Try AppIndicator3 first (best tray support), fall back to Gtk.StatusIcon
 try:
@@ -109,11 +125,24 @@ class TrayIcon:
     # ── AppIndicator (preferred) ───────────────────────────────────
 
     def _create_appindicator(self) -> None:
-        indicator = AppIndicator3.Indicator.new(
-            "linuxshot",
-            "camera-photo",
-            AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
-        )
+        icon = _find_icon()
+        # If we have an absolute path, set icon_theme_path to its directory
+        # so KDE's StatusNotifierItem can locate the icon
+        if os.path.isabs(icon):
+            icon_dir = os.path.dirname(icon)
+            icon_name = os.path.splitext(os.path.basename(icon))[0]
+            indicator = AppIndicator3.Indicator.new_with_path(
+                "linuxshot",
+                icon_name,
+                AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
+                icon_dir,
+            )
+        else:
+            indicator = AppIndicator3.Indicator.new(
+                "linuxshot",
+                icon,
+                AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
+            )
         indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         indicator.set_title("LinuxShot")
         indicator.set_menu(self._build_menu())
@@ -122,8 +151,12 @@ class TrayIcon:
     # ── Gtk.StatusIcon (fallback) ──────────────────────────────────
 
     def _create_status_icon(self) -> None:
+        icon_path = _find_icon()
         icon = Gtk.StatusIcon()
-        icon.set_from_icon_name("camera-photo")
+        if os.path.isabs(icon_path):
+            icon.set_from_file(icon_path)
+        else:
+            icon.set_from_icon_name(icon_path)
         icon.set_tooltip_text("LinuxShot")
         icon.set_visible(True)
         icon.connect("popup-menu", self._on_status_icon_popup)

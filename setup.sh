@@ -248,6 +248,15 @@ sed -i "s|Exec=linuxshot|Exec=$LINUXSHOT_BIN|g" "$DESKTOP_DIR/linuxshot.desktop"
 
 ok "Desktop file installed to $DESKTOP_DIR"
 
+# ── Install icon ──────────────────────────────────────────────────
+
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
+mkdir -p "$ICON_DIR"
+cp "$SCRIPT_DIR/resources/icons/linuxshot.svg" "$ICON_DIR/linuxshot.svg"
+gtk-update-icon-cache -f -t "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor" 2>/dev/null || true
+
+ok "Icon installed to $ICON_DIR"
+
 # ── Install autostart entry ───────────────────────────────────────
 
 AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"

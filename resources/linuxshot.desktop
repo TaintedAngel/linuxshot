@@ -2,7 +2,7 @@
 Name=LinuxShot
 Comment=ShareX-inspired screenshot and upload tool
 Exec=linuxshot tray
-Icon=camera-photo
+Icon=linuxshot
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
