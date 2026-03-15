@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=LinuxShot
+Comment=ShareX-inspired screenshot and upload tool
+Exec=linuxshot gui
+Icon=camera-photo
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=screenshot;capture;upload;imgur;screen;
+StartupNotify=false
