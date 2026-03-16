@@ -1,4 +1,10 @@
-"""Image upload module for LinuxShot. Supports Imgur (anonymous + authenticated)."""
+"""Image upload module for LinuxShot.
+
+Supports:
+  - catbox.moe  (free, no API key, default)
+  - 0x0.st      (free, no API key)
+  - imgur       (needs your own Client ID)
+"""
 
 import base64
 import os
@@ -10,6 +16,8 @@ import requests
 from .config import Config
 
 IMGUR_API_URL = "https://api.imgur.com/3/image"
+CATBOX_API_URL = "https://catbox.moe/user/api.php"
+ZEROX0_API_URL = "https://0x0.st"
 
 
 @dataclass
@@ -27,7 +35,9 @@ class UploadError(Exception):
 
 
 def upload_to_imgur(filepath: str) -> UploadResult:
-    """Upload an image to Imgur anonymously.
+    """Upload an image to Imgur.
+
+    Uses authenticated upload when logged in, anonymous otherwise.
 
     Args:
         filepath: Path to the image file.
@@ -38,8 +48,7 @@ def upload_to_imgur(filepath: str) -> UploadResult:
     Raises:
         UploadError: If the upload fails.
     """
-    config = Config.get()
-    client_id = config["imgur_client_id"]
+    from .imgur_auth import ImgurAuth
 
     if not os.path.exists(filepath):
         raise UploadError(f"File not found: {filepath}")
@@ -51,9 +60,17 @@ def upload_to_imgur(filepath: str) -> UploadResult:
     except OSError as e:
         raise UploadError(f"Failed to read file: {e}")
 
-    headers = {
-        "Authorization": f"Client-ID {client_id}",
-    }
+    config = Config.get()
+    client_id = config["imgur_client_id"]
+    if not client_id:
+        raise UploadError(
+            "No Imgur Client ID configured.\n"
+            "Get one at https://api.imgur.com/oauth2/addclient\n"
+            "Then run: linuxshot config --set imgur_client_id YOUR_ID"
+        )
+
+    auth = ImgurAuth()
+    headers = auth.get_auth_header()
 
     payload = {
         "image": image_data,
@@ -121,15 +138,72 @@ def upload_to_imgur(filepath: str) -> UploadResult:
         raise UploadError(f"Unexpected Imgur response: {e}")
 
 
-def upload(filepath: str) -> UploadResult:
-    """Upload an image using the configured service.
+def upload_to_catbox(filepath: str) -> UploadResult:
+    """Upload to catbox.moe - free, no API key required."""
+    if not os.path.exists(filepath):
+        raise UploadError(f"File not found: {filepath}")
 
-    Currently only supports Imgur. Extensible for future services.
-    """
+    try:
+        with open(filepath, "rb") as f:
+            response = requests.post(
+                CATBOX_API_URL,
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": (os.path.basename(filepath), f)},
+                timeout=60,
+            )
+    except requests.ConnectionError:
+        raise UploadError("No internet connection.")
+    except requests.Timeout:
+        raise UploadError("Upload timed out.")
+    except requests.RequestException as e:
+        raise UploadError(f"Upload failed: {e}")
+
+    if response.status_code != 200 or not response.text.startswith("http"):
+        raise UploadError(f"catbox.moe upload failed: {response.text[:200]}")
+
+    url = response.text.strip()
+    return UploadResult(url=url, delete_hash="", page_url=url, service="catbox")
+
+
+def upload_to_0x0(filepath: str) -> UploadResult:
+    """Upload to 0x0.st - free, no API key required."""
+    if not os.path.exists(filepath):
+        raise UploadError(f"File not found: {filepath}")
+
+    try:
+        with open(filepath, "rb") as f:
+            response = requests.post(
+                ZEROX0_API_URL,
+                files={"file": (os.path.basename(filepath), f)},
+                timeout=60,
+            )
+    except requests.ConnectionError:
+        raise UploadError("No internet connection.")
+    except requests.Timeout:
+        raise UploadError("Upload timed out.")
+    except requests.RequestException as e:
+        raise UploadError(f"Upload failed: {e}")
+
+    if response.status_code != 200 or not response.text.startswith("http"):
+        raise UploadError(f"0x0.st upload failed: {response.text[:200]}")
+
+    url = response.text.strip()
+    return UploadResult(url=url, delete_hash="", page_url=url, service="0x0")
+
+
+def upload(filepath: str) -> UploadResult:
+    """Upload an image using the configured service."""
     config = Config.get()
     service = config["upload_service"]
 
-    if service == "imgur":
+    if service == "catbox":
+        return upload_to_catbox(filepath)
+    elif service == "0x0":
+        return upload_to_0x0(filepath)
+    elif service == "imgur":
         return upload_to_imgur(filepath)
     else:
-        raise UploadError(f"Unknown upload service: {service}")
+        raise UploadError(
+            f"Unknown upload service: {service}\n"
+            f"Available: catbox, 0x0, imgur"
+        )

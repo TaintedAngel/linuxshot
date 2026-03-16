@@ -24,9 +24,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "show_notification": True,
     "save_to_disk": True,
 
-    # Upload - Imgur
-    "upload_service": "imgur",
-    "imgur_client_id": "3e7a4deb7ac67da",  # Default anonymous Imgur client ID
+    # Upload
+    "upload_service": "catbox",  # catbox, 0x0, imgur
+    "imgur_client_id": "",  # Only needed for imgur: https://api.imgur.com/oauth2/addclient
+    "imgur_client_secret": "",
     "imgur_anonymous": True,
 
     # Capture
@@ -34,6 +35,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "include_cursor": False,
     "region_border_color": "#ff4444",
     "region_border_width": 2,
+
+    # Shortcuts (KDE key names - change via Settings or linuxshot config --set)
+    "shortcut_region": "Print",               # ShareX-style PrtSc bindings
+    "shortcut_fullscreen": "Ctrl+Print",
+    "shortcut_window": "Alt+Print",
+    "override_spectacle": True,  # Replaces Spectacle's PrtSc on KDE
 
     # Tray
     "start_in_tray": True,

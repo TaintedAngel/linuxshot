@@ -84,31 +84,31 @@ install_deps_arch() {
 
     local pkgs=(
         python python-pip python-gobject python-pillow python-requests
-        gtk3 libnotify
+        python-pyside6 python-dbus libnotify
     )
 
     # Display server specific
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
-        pkgs+=(grim slurp wl-clipboard)
+        pkgs+=(wl-clipboard)
         if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
             pkgs+=(spectacle)
+        else
+            pkgs+=(grim slurp)
         fi
     fi
     if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         pkgs+=(maim xdotool xclip)
     fi
 
-    # AppIndicator for tray
-    # Try libayatana-appindicator first, then libappindicator-gtk3
-    pkgs+=(libayatana-appindicator)
-
     sudo pacman -S --needed --noconfirm "${pkgs[@]}" || {
         warn "Some packages may not be in official repos. Trying without optional ones..."
-        sudo pacman -S --needed --noconfirm python python-pip python-gobject python-pillow python-requests gtk3 libnotify
+        sudo pacman -S --needed --noconfirm python python-pip python-gobject python-pillow python-requests python-dbus libnotify
         if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
-            sudo pacman -S --needed --noconfirm grim slurp wl-clipboard
+            sudo pacman -S --needed --noconfirm wl-clipboard
             if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
                 sudo pacman -S --needed --noconfirm spectacle
+            else
+                sudo pacman -S --needed --noconfirm grim slurp
             fi
         fi
         if [ "$DISPLAY_SERVER" = "x11" ] || [ "$DISPLAY_SERVER" = "both" ]; then
@@ -264,7 +264,7 @@ mkdir -p "$AUTOSTART_DIR"
 cp "$SCRIPT_DIR/resources/linuxshot-autostart.desktop" "$AUTOSTART_DIR/linuxshot.desktop"
 sed -i "s|Exec=linuxshot|Exec=$LINUXSHOT_BIN|g" "$AUTOSTART_DIR/linuxshot.desktop"
 
-ok "Autostart entry installed — LinuxShot will start in system tray on login."
+ok "Autostart entry installed - LinuxShot will start in system tray on login."
 
 # ── Create default config ─────────────────────────────────────────
 
@@ -283,18 +283,23 @@ echo -e "${BOLD}${GREEN}║        LinuxShot installed successfully!     ║${RE
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "  ${BOLD}Quick start:${RESET}"
-echo "    linuxshot region       — Capture a region"
-echo "    linuxshot fullscreen   — Capture full screen"
-echo "    linuxshot window       — Capture active window"
-echo "    linuxshot tray         — Start system tray"
-echo "    linuxshot gui          — Open settings window"
-echo "    linuxshot check        — Verify dependencies"
+echo "    linuxshot region       - Capture a region"
+echo "    linuxshot fullscreen   - Capture full screen"
+echo "    linuxshot window       - Capture active window"
+echo "    linuxshot tray         - Start system tray"
+echo "    linuxshot gui          - Open settings window"
+echo "    linuxshot check        - Verify dependencies"
 echo ""
 echo -e "  ${BOLD}Set up keyboard shortcuts:${RESET}"
-echo "    In your DE settings, bind these commands:"
-echo "    Print Screen        → linuxshot region"
-echo "    Ctrl+Print Screen   → linuxshot fullscreen"
-echo "    Alt+Print Screen    → linuxshot window"
+if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
+    echo "    Run: linuxshot setup"
+    echo "    (auto-registers PrtSc shortcuts on KDE Plasma)"
+else
+    echo "    In your DE settings, bind these commands:"
+    echo "    Print Screen        → linuxshot region"
+    echo "    Ctrl+Print Screen   → linuxshot fullscreen"
+    echo "    Alt+Print Screen    → linuxshot window"
+fi
 echo ""
 echo -e "  ${BOLD}Enable auto-upload:${RESET}"
 echo "    linuxshot config --set auto_upload true"

@@ -2,20 +2,20 @@
 
 **A ShareX-inspired screenshot and upload tool for Linux.**
 
-LinuxShot brings the core ShareX workflow to Linux — capture a region, fullscreen, or window, auto-upload to Imgur, and copy the link to your clipboard, all with a single keypress. Works on both **Wayland** and **X11**.
+Capture a region, fullscreen, or window with a single keypress, auto-upload to your choice of host, and get the link on your clipboard. Works on both **Wayland** and **X11**.
 
 ## Features
 
-- **Region capture** — select any area of your screen (like ShareX's Print Screen)
-- **Fullscreen capture** — grab the entire screen instantly
-- **Active window capture** — capture just the focused window (Hyprland, Sway, X11)
-- **Auto-upload to Imgur** — anonymous upload, link copied to clipboard
-- **Desktop notifications** — get notified on capture and upload
-- **System tray** — quick-access menu, just like ShareX
-- **GUI settings window** — configure everything visually
-- **Capture history** — browse and manage past screenshots
-- **CLI interface** — scriptable, perfect for keybinds
-- **Multi-distro support** — Arch/CachyOS, Debian/Ubuntu, Fedora, openSUSE, Void
+- Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
+- Upload to **catbox.moe**, **0x0.st**, or **Imgur** (anonymous, link copied to clipboard)
+- Global keyboard shortcuts on KDE Plasma via KGlobalAccel
+- Desktop notifications on capture and upload
+- System tray icon (PySide6/Qt) with context menu
+- GUI settings window for shortcuts, upload, capture, and storage
+- Capture history with CLI + GUI viewer
+- Full CLI for scripting and keybinds
+- Self-update: `linuxshot update`
+- Works on Arch/CachyOS, Debian/Ubuntu, Fedora, openSUSE, Void
 
 ## Install
 
@@ -78,12 +78,14 @@ sudo dnf install maim xdotool xclip
 linuxshot region          Capture a selected region
 linuxshot fullscreen      Capture the entire screen
 linuxshot window          Capture the active window
-linuxshot upload <file>   Upload a file to Imgur
+linuxshot upload <file>   Upload a file
 linuxshot upload-last     Upload the most recent capture
-linuxshot history         Show capture history
+linuxshot history         Show recent capture history
 linuxshot config          View/edit configuration
 linuxshot tray            Start the system tray icon
 linuxshot gui             Open the settings window
+linuxshot setup           Register shortcuts, desktop file & autostart (KDE)
+linuxshot update          Update to the latest version from GitHub
 linuxshot check           Verify all dependencies
 ```
 
@@ -95,7 +97,7 @@ Start LinuxShot in the background with a tray icon:
 linuxshot tray
 ```
 
-Right-click the tray icon for quick actions — capture, upload, toggle auto-upload, open screenshots folder, etc.
+Right-click the tray icon for quick actions: capture, upload, toggle auto-upload, open screenshots folder, etc.
 
 To auto-start the tray on login, add `linuxshot tray` to your compositor/DE autostart config.
 
@@ -106,60 +108,53 @@ linuxshot gui
 ```
 
 Opens a window with three tabs:
-- **Capture** — quick-action buttons for all capture modes
-- **History** — browse past screenshots with upload status
-- **Settings** — toggle features, set Imgur client ID, image format, etc.
+- **Capture** - buttons for all capture modes
+- **History** - past screenshots with upload status
+- **Settings** - upload service, image format, Imgur client ID, etc.
 
 ## Keyboard Shortcuts
 
-LinuxShot is designed to be bound to keyboard shortcuts, just like ShareX. Set these up in your desktop environment:
+### KDE Plasma (automatic)
 
-### Hyprland
+On KDE Plasma 6, LinuxShot can register global shortcuts automatically:
 
-Add to `~/.config/hypr/hyprland.conf`:
+```bash
+linuxshot setup
+```
 
+This registers PrtSc / Ctrl+PrtSc / Alt+PrtSc (replacing Spectacle), installs the desktop file, and sets up autostart. You can also configure shortcuts from the tray's **Settings** dialog.
+
+### Other desktop environments (manual)
+
+Bind these commands to your preferred keys:
+
+#### Hyprland (`~/.config/hypr/hyprland.conf`)
 ```
 bind = , Print, exec, linuxshot region
 bind = CTRL, Print, exec, linuxshot fullscreen
 bind = ALT, Print, exec, linuxshot window
 ```
 
-### Sway
-
-Add to `~/.config/sway/config`:
-
+#### Sway (`~/.config/sway/config`)
 ```
 bindsym Print exec linuxshot region
 bindsym Ctrl+Print exec linuxshot fullscreen
 bindsym Alt+Print exec linuxshot window
 ```
 
-### KDE Plasma
-
-1. System Settings → Shortcuts → Custom Shortcuts
-2. Add new → Global Shortcut → Command/URL
-3. Set trigger to Print Screen, action to `linuxshot region`
-4. Repeat for Ctrl+Print Screen → `linuxshot fullscreen`
-5. Repeat for Alt+Print Screen → `linuxshot window`
-
-### GNOME
-
-```bash
-# Region capture on Print Screen
-gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/']"
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ name 'LinuxShot Region'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ command 'linuxshot region'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ binding 'Print'
-```
-
-### i3
-
-Add to `~/.config/i3/config`:
-
+#### i3 (`~/.config/i3/config`)
 ```
 bindsym Print exec --no-startup-id linuxshot region
 bindsym Ctrl+Print exec --no-startup-id linuxshot fullscreen
 bindsym Alt+Print exec --no-startup-id linuxshot window
+```
+
+#### GNOME
+```bash
+gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/']"
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ name 'LinuxShot Region'
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ command 'linuxshot region'
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linuxshot-region/ binding 'Print'
 ```
 
 ## Configuration
@@ -194,41 +189,38 @@ linuxshot config --set screenshot_dir /path/to/screenshots
 linuxshot config --reset
 ```
 
-### All config options
+### Key config options
 
-| Option | Default | Description |
-|---|---|---|
-| `screenshot_dir` | `~/Pictures/LinuxShot` | Where screenshots are saved |
-| `image_format` | `png` | Image format: png, jpg, webp |
-| `jpg_quality` | `95` | JPEG quality (1-100) |
-| `auto_upload` | `false` | Upload to Imgur after every capture |
-| `copy_image_to_clipboard` | `true` | Copy screenshot image to clipboard |
-| `copy_url_to_clipboard` | `true` | Copy Imgur URL to clipboard after upload |
-| `show_notification` | `true` | Show desktop notification |
-| `capture_delay` | `0` | Seconds to wait before capturing |
-| `imgur_client_id` | *(built-in)* | Your Imgur API client ID |
-| `save_history` | `true` | Track capture history |
-| `max_history_entries` | `1000` | Max history entries to keep |
+- `upload_service` - `catbox` (default), `0x0`, or `imgur`
+- `auto_upload` - upload after every capture (default: false)
+- `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)
+- `image_format` - `png`, `jpg`, or `webp` (default: png)
+- `copy_image_to_clipboard` - copy image to clipboard (default: true)
+- `copy_url_to_clipboard` - copy URL after upload (default: true)
+- `show_notification` - desktop notifications (default: true)
+- `shortcut_region` / `shortcut_fullscreen` / `shortcut_window` - key bindings
+- `override_spectacle` - replace Spectacle's PrtSc on KDE (default: true)
 
 ## Dependencies
 
 ### Wayland
-- `grim` — screenshot capture
-- `slurp` — region selection
-- `wl-clipboard` — clipboard (wl-copy)
+- `grim` - screenshot capture
+- `slurp` - region selection
+- `wl-clipboard` - clipboard (wl-copy)
 
 ### X11
-- `maim` — screenshot capture
-- `xdotool` — active window detection
-- `xclip` — clipboard
+- `maim` - screenshot capture
+- `xdotool` - active window detection
+- `xclip` - clipboard
 
 ### Common
 - Python 3.10+
-- PyGObject (GTK3 bindings)
+- PySide6 (Qt6 tray and settings)
+- PyGObject (GLib for DBus signal dispatch)
+- dbus-python (shortcut signal listener)
 - Pillow
 - requests
 - libnotify (notify-send)
-- AppIndicator3 or AyatanaAppIndicator3 (for system tray)
 
 Run `linuxshot check` to verify everything is installed.
 
@@ -245,30 +237,21 @@ pip uninstall linuxshot
 rm ~/.local/share/applications/linuxshot.desktop
 ```
 
-## ShareX Feature Comparison
+## Updating
 
-| ShareX Feature | LinuxShot | Notes |
-|---|---|---|
-| Region capture | ✅ | via grim+slurp / maim |
-| Fullscreen capture | ✅ | |
-| Window capture | ✅ | Hyprland, Sway, X11 |
-| Capture delay | ✅ | Configurable |
-| Auto-upload (Imgur) | ✅ | Anonymous upload |
-| Copy to clipboard | ✅ | Image + URL |
-| Desktop notification | ✅ | |
-| System tray | ✅ | AppIndicator + StatusIcon fallback |
-| Capture history | ✅ | JSON-based with CLI + GUI viewer |
-| Settings GUI | ✅ | GTK3 window |
-| Image annotation | ❌ | Planned |
-| Screen recording | ❌ | Use OBS or wf-recorder |
-| GIF capture | ❌ | Use peek or gifski |
-| OCR | ❌ | Planned |
-| Multiple upload services | ❌ | Imgur only (extensible) |
-| Scrolling capture | ❌ | Not feasible on Linux |
+```bash
+linuxshot update
+```
+
+Or manually:
+
+```bash
+pip install --upgrade git+https://github.com/TaintedAngel/linuxshot.git
+```
 
 ## License
 
-GPL-3.0 — same as ShareX.
+GPL-3.0, same as ShareX.
 
 ## Contributing
 

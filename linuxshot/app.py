@@ -55,17 +55,16 @@ class App:
             else:
                 print("Warning: Failed to copy image to clipboard.", file=sys.stderr)
 
-        # ── Step 3: Upload (if auto-upload is enabled) ─────────────────
+        # ── Step 3: Always notify capture success first ────────────────
+        if self.config["show_notification"]:
+            notify.notify_capture_success(result.filepath)
+
+        # ── Step 4: Upload (if auto-upload is enabled) ─────────────────
         upload_url = ""
         if self.config["auto_upload"]:
             upload_url = self._do_upload(result)
-
-        # ── Step 4: Show notification ──────────────────────────────────
-        if self.config["show_notification"]:
-            if upload_url:
+            if upload_url and self.config["show_notification"]:
                 notify.notify_upload_success(upload_url)
-            else:
-                notify.notify_capture_success(result.filepath)
 
         # ── Step 5: Save to history ────────────────────────────────────
         if self.config["save_history"]:

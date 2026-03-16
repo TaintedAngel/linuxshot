@@ -24,7 +24,7 @@ from .capture import CaptureMode
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="linuxshot",
-        description=f"{__app_name__} v{__version__} — ShareX-inspired screenshot tool for Linux",
+        description=f"{__app_name__} v{__version__} - ShareX-inspired screenshot tool for Linux",
     )
     parser.add_argument(
         "-v", "--version", action="version", version=f"{__app_name__} {__version__}"
@@ -70,6 +70,20 @@ def main() -> int:
     subparsers.add_parser("tray", help="Start the system tray icon")
     subparsers.add_parser("gui", help="Open the main LinuxShot window")
 
+    # ── Setup & Auth ───────────────────────────────────────────────────
+    subparsers.add_parser(
+        "setup",
+        help="Configure PrtSc shortcuts, disable Spectacle, install tray icon & autostart",
+    )
+    subparsers.add_parser("login", help="Sign in to Imgur for authenticated uploads")
+    subparsers.add_parser("logout", help="Sign out of Imgur")
+
+    # ── Update ──────────────────────────────────────────────────────────
+    subparsers.add_parser(
+        "update",
+        help="Update LinuxShot to the latest version from GitHub",
+    )
+
     # ── Diagnostics ────────────────────────────────────────────────────
     subparsers.add_parser("check", help="Check system dependencies")
 
@@ -104,6 +118,18 @@ def main() -> int:
 
     if args.command == "check":
         return _cmd_check()
+
+    if args.command == "setup":
+        return _cmd_setup()
+
+    if args.command == "update":
+        return _cmd_update()
+
+    if args.command == "login":
+        return _cmd_login()
+
+    if args.command == "logout":
+        return _cmd_logout()
 
     parser.print_help()
     return 0
@@ -221,8 +247,8 @@ def _cmd_tray() -> int:
         run_tray()
         return 0
     except ImportError as e:
-        print(f"Error: System tray requires GTK3 and AppIndicator3: {e}", file=sys.stderr)
-        print("Install with: sudo pacman -S libappindicator-gtk3 python-gobject", file=sys.stderr)
+        print(f"Error: System tray requires PySide6: {e}", file=sys.stderr)
+        print("Install with: pip install PySide6", file=sys.stderr)
         return 1
 
 
@@ -232,9 +258,59 @@ def _cmd_gui() -> int:
         run_gui()
         return 0
     except ImportError as e:
-        print(f"Error: GUI requires GTK3: {e}", file=sys.stderr)
-        print("Install with: sudo pacman -S python-gobject gtk3", file=sys.stderr)
+        print(f"Error: GUI requires PySide6 or GTK3: {e}", file=sys.stderr)
+        print("Install with: pip install PySide6", file=sys.stderr)
         return 1
+
+
+def _cmd_setup() -> int:
+    from .shortcuts import setup_all
+
+    success, messages = setup_all()
+    for msg in messages:
+        print(msg)
+    return 0 if success else 1
+
+
+def _cmd_login() -> int:
+    from .imgur_auth import ImgurAuth
+
+    auth = ImgurAuth()
+    if auth.is_logged_in:
+        print(f"Already logged in as: {auth.username}")
+        print("Run 'linuxshot logout' first to switch accounts.")
+        return 0
+    return 0 if auth.login_interactive() else 1
+
+
+def _cmd_logout() -> int:
+    from .imgur_auth import ImgurAuth
+
+    auth = ImgurAuth()
+    if not auth.is_logged_in:
+        print("Not logged in.")
+        return 0
+    username = auth.username
+    auth.logout()
+    print(f"Logged out from: {username}")
+    return 0
+
+
+def _cmd_update() -> int:
+    import subprocess
+    print("Updating LinuxShot from GitHub...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade",
+         "git+https://github.com/TaintedAngel/linuxshot.git"],
+        capture_output=False,
+    )
+    if result.returncode == 0:
+        print("\nLinuxShot updated successfully!")
+        print("Restart the tray to apply changes: linuxshot tray")
+    else:
+        print("\nUpdate failed. Try manually:", file=sys.stderr)
+        print("  pip install --upgrade git+https://github.com/TaintedAngel/linuxshot.git", file=sys.stderr)
+    return result.returncode
 
 
 def _cmd_check() -> int:
@@ -305,7 +381,7 @@ def _print_dep(name: str, available: bool, desc: str) -> None:
     status = "✓" if available else "✗"
     color = "\033[32m" if available else "\033[31m"
     reset = "\033[0m"
-    print(f"  {color}{status}{reset} {name} — {desc}")
+    print(f"  {color}{status}{reset} {name} - {desc}")
 
 
 def _check_python_pkg(name: str, import_name: str) -> None:
