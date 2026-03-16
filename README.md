@@ -4,6 +4,12 @@
 
 Capture a region, fullscreen, or window with a single keypress, auto-upload to your choice of host, and get the link on your clipboard. Works on both **Wayland** and **X11**.
 
+<p align="center">
+  <img src="https://files.catbox.moe/v8qxc3.png" width="200" alt="Tray menu">
+  &nbsp;&nbsp;
+  <img src="https://files.catbox.moe/wjsoo7.png" width="350" alt="Settings">
+</p>
+
 ## Features
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
