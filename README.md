@@ -2,18 +2,18 @@
 
 **A ShareX-inspired screenshot and upload tool for Linux.**
 
-Capture a region, fullscreen, or window with a single keypress, auto-upload to your choice of host, and get the link on your clipboard. Works on both **Wayland** and **X11**.
+Capture a region, fullscreen, or window with a single keypress, auto-upload to **ImgBB**, and get a direct `i.ibb.co` link on your clipboard. Works on both **Wayland** and **X11**.
 
 <p align="center">
   <img src="https://files.catbox.moe/v8qxc3.png" width="200" alt="Tray menu">
   &nbsp;&nbsp;
-  <img src="https://files.catbox.moe/wjsoo7.png" width="350" alt="Settings">
+  <img src="https://i.ibb.co/w2JmYMW/c379c25a9975.png" width="350" alt="Settings">
 </p>
 
 ## Features
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
-- Upload to **catbox.moe**, **0x0.st**, or **Imgur** (anonymous, link copied to clipboard)
+- Upload to **ImgBB** — direct `i.ibb.co` links that work everywhere (Perplexity, Discord, etc)
 - Global keyboard shortcuts on KDE Plasma via KGlobalAccel
 - Desktop notifications on capture and upload
 - System tray icon (PySide6/Qt) with context menu
@@ -116,7 +116,7 @@ linuxshot gui
 Opens a window with three tabs:
 - **Capture** - buttons for all capture modes
 - **History** - past screenshots with upload status
-- **Settings** - upload service, image format, Imgur client ID, etc.
+- **Settings** - ImgBB API key, image format, shortcuts, etc.
 
 ## Keyboard Shortcuts
 
@@ -176,7 +176,10 @@ linuxshot config
 ### Common config tweaks
 
 ```bash
-# Enable auto-upload to Imgur after every capture
+# Set your ImgBB API key (get one at https://api.imgbb.com/)
+linuxshot config --set imgbb_api_key YOUR_API_KEY
+
+# Enable auto-upload after every capture
 linuxshot config --set auto_upload true
 
 # Change image format to JPEG
@@ -184,9 +187,6 @@ linuxshot config --set image_format jpg
 
 # Set a capture delay (seconds)
 linuxshot config --set capture_delay 3
-
-# Use your own Imgur Client ID
-linuxshot config --set imgur_client_id YOUR_CLIENT_ID
 
 # Change screenshot save directory
 linuxshot config --set screenshot_dir /path/to/screenshots
@@ -197,7 +197,7 @@ linuxshot config --reset
 
 ### Key config options
 
-- `upload_service` - `catbox` (default), `0x0`, or `imgur`
+- `imgbb_api_key` - your ImgBB API key (get one at https://api.imgbb.com/)
 - `auto_upload` - upload after every capture (default: false)
 - `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)
 - `image_format` - `png`, `jpg`, or `webp` (default: png)
@@ -270,7 +270,6 @@ Pull requests welcome! If you'd like to add features:
 
 Ideas for contributions:
 - Image annotation overlay
-- Additional upload services (S3, custom HTTP, etc.)
 - OCR via Tesseract
 - Screen recording via wf-recorder/ffmpeg
 - Theming support
