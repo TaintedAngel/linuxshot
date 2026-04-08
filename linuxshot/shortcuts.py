@@ -249,7 +249,7 @@ Icon=linuxshot
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
-Keywords=screenshot;capture;upload;imgur;screen;
+Keywords=screenshot;capture;upload;imgbb;screen;
 StartupNotify=false
 Actions=CaptureRegion;CaptureFullscreen;CaptureWindow;
 

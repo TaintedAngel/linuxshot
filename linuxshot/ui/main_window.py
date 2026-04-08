@@ -211,10 +211,7 @@ class MainWindow(Gtk.Window):
         row = self._add_section_header(grid, "Upload", row)
         row = self._add_toggle(grid, "Auto-upload after capture", "auto_upload", row)
         row = self._add_toggle(grid, "Copy URL to clipboard after upload", "copy_url_to_clipboard", row)
-        row = self._add_entry(grid, "Imgur Client ID", "imgur_client_id", row)
-
-        # Imgur account row
-        row = self._add_imgur_account_row(grid, row)
+        row = self._add_entry(grid, "ImgBB API Key", "imgbb_api_key", row)
 
         # Section: Capture
         row = self._add_section_header(grid, "Capture", row)
@@ -309,123 +306,7 @@ class MainWindow(Gtk.Window):
         grid.attach(combo, 1, row, 1, 1)
         return row + 1
 
-    def _add_imgur_account_row(self, grid: Gtk.Grid, row: int) -> int:
-        """Add Imgur login/logout button + status label."""
-        from ..imgur_auth import ImgurAuth
-
-        lbl = Gtk.Label(label="Imgur Account")
-        lbl.set_halign(Gtk.Align.START)
-        grid.attach(lbl, 0, row, 1, 1)
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-
-        self._imgur_auth = ImgurAuth()
-        self._imgur_status_label = Gtk.Label()
-        self._imgur_login_btn = Gtk.Button()
-        self._update_imgur_status()
-
-        hbox.pack_start(self._imgur_status_label, False, False, 0)
-        hbox.pack_end(self._imgur_login_btn, False, False, 0)
-        grid.attach(hbox, 1, row, 1, 1)
-        return row + 1
-
-    def _update_imgur_status(self) -> None:
-        """Refresh the Imgur login status label and button."""
-        if self._imgur_auth.is_logged_in:
-            self._imgur_status_label.set_text(f"Signed in as: {self._imgur_auth.username}")
-            self._imgur_login_btn.set_label("Sign Out")
-            try:
-                self._imgur_login_btn.disconnect_by_func(self._on_imgur_login)
-            except TypeError:
-                pass
-            self._imgur_login_btn.connect("clicked", self._on_imgur_logout)
-        else:
-            self._imgur_status_label.set_text("Not signed in (anonymous uploads)")
-            self._imgur_login_btn.set_label("Sign In to Imgur")
-            try:
-                self._imgur_login_btn.disconnect_by_func(self._on_imgur_logout)
-            except TypeError:
-                pass
-            self._imgur_login_btn.connect("clicked", self._on_imgur_login)
-
-    def _on_imgur_login(self, btn) -> None:
-        """Open Imgur auth flow in a dialog."""
-        from ..imgur_auth import ImgurAuth
-
-        config = Config.get()
-        client_id = config["imgur_client_id"]
-        url = f"https://api.imgur.com/oauth2/authorize?client_id={client_id}&response_type=pin"
-
-        import webbrowser
-        webbrowser.open(url)
-
-        # Show a dialog to enter the PIN
-        dialog = Gtk.Dialog(
-            title="Imgur Sign In",
-            transient_for=self,
-            flags=0,
-        )
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Sign In", Gtk.ResponseType.OK)
-        dialog.set_default_size(400, -1)
-
-        content = dialog.get_content_area()
-        content.set_spacing(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-
-        info = Gtk.Label()
-        info.set_markup(
-            "A browser window has opened to Imgur.\n"
-            "Authorize LinuxShot, then paste the <b>PIN</b> below:"
-        )
-        info.set_line_wrap(True)
-        content.add(info)
-
-        pin_entry = Gtk.Entry()
-        pin_entry.set_placeholder_text("Enter PIN from Imgur")
-        pin_entry.set_activates_default(True)
-        content.add(pin_entry)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        pin = pin_entry.get_text().strip()
-        dialog.destroy()
-
-        if response != Gtk.ResponseType.OK or not pin:
-            return
-
-        auth = ImgurAuth()
-        if auth._exchange_pin(pin):
-            self._imgur_auth = auth
-            self._update_imgur_status()
-            msg = Gtk.MessageDialog(
-                transient_for=self, flags=0,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK,
-                text=f"Signed in as {auth.username}!",
-            )
-            msg.run()
-            msg.destroy()
-        else:
-            msg = Gtk.MessageDialog(
-                transient_for=self, flags=0,
-                message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK,
-                text="Sign in failed. Check the PIN and try again.",
-            )
-            msg.run()
-            msg.destroy()
-
-    def _on_imgur_logout(self, btn) -> None:
-        self._imgur_auth.logout()
-        self._update_imgur_status()
-
-    # ── Signal handlers ────────────────────────────────────────────
+    # ── Signal handlers
 
     def _on_capture_clicked(self, btn, mode: CaptureMode) -> None:
         self.hide()

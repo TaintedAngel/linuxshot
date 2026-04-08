@@ -4,7 +4,7 @@ Usage:
     linuxshot region          Capture a selected region (like ShareX Print Screen)
     linuxshot fullscreen      Capture the full screen (like ShareX Ctrl+Print Screen)
     linuxshot window          Capture the active window (like ShareX Alt+Print Screen)
-    linuxshot upload <file>   Upload a file to Imgur
+    linuxshot upload <file>   Upload a file to ImgBB
     linuxshot upload-last     Upload the most recent capture
     linuxshot history         Show recent capture history
     linuxshot config          Show/edit configuration
@@ -38,7 +38,7 @@ def main() -> int:
     subparsers.add_parser("window", help="Capture the active window")
 
     # ── Upload commands ────────────────────────────────────────────────
-    upload_parser = subparsers.add_parser("upload", help="Upload a file to Imgur")
+    upload_parser = subparsers.add_parser("upload", help="Upload a file to ImgBB")
     upload_parser.add_argument("file", help="Path to the file to upload")
 
     subparsers.add_parser("upload-last", help="Upload the most recent capture")
@@ -75,8 +75,6 @@ def main() -> int:
         "setup",
         help="Configure PrtSc shortcuts, disable Spectacle, install tray icon & autostart",
     )
-    subparsers.add_parser("login", help="Sign in to Imgur for authenticated uploads")
-    subparsers.add_parser("logout", help="Sign out of Imgur")
 
     # ── Update ──────────────────────────────────────────────────────────
     subparsers.add_parser(
@@ -124,12 +122,6 @@ def main() -> int:
 
     if args.command == "update":
         return _cmd_update()
-
-    if args.command == "login":
-        return _cmd_login()
-
-    if args.command == "logout":
-        return _cmd_logout()
 
     parser.print_help()
     return 0
@@ -270,30 +262,6 @@ def _cmd_setup() -> int:
     for msg in messages:
         print(msg)
     return 0 if success else 1
-
-
-def _cmd_login() -> int:
-    from .imgur_auth import ImgurAuth
-
-    auth = ImgurAuth()
-    if auth.is_logged_in:
-        print(f"Already logged in as: {auth.username}")
-        print("Run 'linuxshot logout' first to switch accounts.")
-        return 0
-    return 0 if auth.login_interactive() else 1
-
-
-def _cmd_logout() -> int:
-    from .imgur_auth import ImgurAuth
-
-    auth = ImgurAuth()
-    if not auth.is_logged_in:
-        print("Not logged in.")
-        return 0
-    username = auth.username
-    auth.logout()
-    print(f"Logged out from: {username}")
-    return 0
 
 
 def _cmd_update() -> int:
