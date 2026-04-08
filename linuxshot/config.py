@@ -25,10 +25,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "save_to_disk": True,
 
     # Upload
-    "upload_service": "catbox",  # catbox, 0x0, imgur
-    "imgur_client_id": "",  # Only needed for imgur: https://api.imgur.com/oauth2/addclient
-    "imgur_client_secret": "",
-    "imgur_anonymous": True,
+    "imgbb_api_key": "",  # Get one at https://api.imgbb.com/
 
     # Capture
     "capture_delay": 0,  # Seconds to wait before capturing

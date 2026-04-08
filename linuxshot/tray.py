@@ -278,16 +278,14 @@ class SettingsDialog:
         layout.addWidget(shortcut_group)
 
         # ── Upload group ───────────────────────────────────────────
-        upload_group = QGroupBox("Upload")
+        upload_group = QGroupBox("Upload (ImgBB)")
         upload_form = QFormLayout(upload_group)
 
-        self._service_combo = QComboBox()
-        self._service_combo.addItems(["catbox", "0x0", "imgur"])
-        current_service = config["upload_service"] or "catbox"
-        idx = self._service_combo.findText(current_service)
-        if idx >= 0:
-            self._service_combo.setCurrentIndex(idx)
-        upload_form.addRow("Upload service:", self._service_combo)
+        self._imgbb_api_key = QLineEdit()
+        self._imgbb_api_key.setPlaceholderText("Get one at api.imgbb.com")
+        self._imgbb_api_key.setText(config["imgbb_api_key"] or "")
+        self._imgbb_api_key.setEchoMode(QLineEdit.Password)
+        upload_form.addRow("API Key:", self._imgbb_api_key)
 
         self._auto_upload = QCheckBox()
         self._auto_upload.setChecked(config["auto_upload"])
@@ -297,9 +295,16 @@ class SettingsDialog:
         self._copy_url.setChecked(config["copy_url_to_clipboard"])
         upload_form.addRow("Copy URL to clipboard:", self._copy_url)
 
+        imgbb_hint = QLabel(
+            '<small>Sign up at <b>imgbb.com</b>, then get your key at '
+            '<b>api.imgbb.com</b>. Links work everywhere (Perplexity, Discord, etc).</small>'
+        )
+        imgbb_hint.setWordWrap(True)
+        upload_form.addRow(imgbb_hint)
+
         layout.addWidget(upload_group)
 
-        # ── Capture group ──────────────────────────────────────────
+        # ── Capture group
         capture_group = QGroupBox("Capture")
         capture_form = QFormLayout(capture_group)
 
@@ -380,7 +385,7 @@ class SettingsDialog:
         self.config["shortcut_window"] = self._key_window.keySequence().toString()
         self.config["override_spectacle"] = self._override_spectacle.isChecked()
         # Upload
-        self.config["upload_service"] = self._service_combo.currentText()
+        self.config["imgbb_api_key"] = self._imgbb_api_key.text().strip()
         self.config["auto_upload"] = self._auto_upload.isChecked()
         self.config["copy_url_to_clipboard"] = self._copy_url.isChecked()
         # Capture
