@@ -1,14 +1,19 @@
+<div align="center">
+
 # LinuxShot
 
 **A ShareX-inspired screenshot and upload tool for Linux.**
 
+[![CI](https://github.com/TaintedAngel/linuxshot/actions/workflows/ci.yml/badge.svg)](https://github.com/TaintedAngel/linuxshot/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TaintedAngel/linuxshot)](https://github.com/TaintedAngel/linuxshot/releases)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+
 Capture a region, fullscreen, or window with a single keypress, auto-upload to **ImgBB**, and get a direct `i.ibb.co` link on your clipboard. Works on both **Wayland** and **X11**.
 
-<p align="center">
-  <img src="https://files.catbox.moe/v8qxc3.png" width="200" alt="Tray menu">
-  &nbsp;&nbsp;
-  <img src="https://i.ibb.co/w2JmYMW/c379c25a9975.png" width="350" alt="Settings">
-</p>
+<img src="docs/images/main-window.png" width="720" alt="LinuxShot main window">
+
+</div>
 
 ## Features
 
@@ -104,6 +109,8 @@ Laid out like ShareX: capture and upload actions in a sidebar on the left,
 your capture history on the right. History entries have thumbnails, a
 filter box, and a right-click menu (open, copy image, copy URL, upload,
 delete). Settings live on their own page in the same window.
+
+<img src="docs/images/settings.png" width="640" alt="Settings page">
 
 ### System Tray
 
