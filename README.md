@@ -18,6 +18,7 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 ## Features
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
+- **Annotation editor** after every capture: arrows, boxes, text, highlights, numbered steps, crop, and **blur** for redacting secrets before anything leaves your machine
 - Upload to **ImgBB, Imgur, catbox.moe, 0x0.st**, or any self-hosted service via a custom HTTP uploader
 - Delete links are kept in history, so an upload is never irreversible
 - ShareX-style main window: action sidebar, searchable capture history with thumbnails, settings
@@ -87,6 +88,7 @@ sudo dnf install maim xdotool xclip
 linuxshot region          Capture a selected region
 linuxshot fullscreen      Capture the entire screen
 linuxshot window          Capture the active window
+linuxshot edit <file>     Annotate an image in the editor
 linuxshot upload <file>   Upload a file
 linuxshot upload-last     Upload the most recent capture
 linuxshot history         Show recent capture history
@@ -99,6 +101,20 @@ linuxshot check           Verify all dependencies
 ```
 
 Running plain `linuxshot` starts the tray.
+
+### Annotation Editor
+
+After each capture the editor opens (turn this off in Settings or with
+`linuxshot config --set open_editor_after_capture false`):
+
+<img src="docs/images/editor.png" width="640" alt="Annotation editor">
+
+Arrow, line, box, ellipse, highlight, text, numbered steps, crop — and
+blur, so credentials and personal data can be pixelated before the image
+is saved or uploaded. **Done** applies your annotations, **Skip** keeps
+the capture untouched, **Discard** throws it away. Ctrl+Z undoes,
+Ctrl+scroll zooms. Existing images can be annotated any time via
+`linuxshot edit` or right-click → Edit in the history.
 
 ### Main Window
 
@@ -236,6 +252,7 @@ For services that answer with a plain-text URL, use `"response_type": "text"`.
 - `upload_service` - destination: `imgbb`, `imgur`, `catbox`, `0x0`, `custom` (default: imgbb)
 - `imgbb_api_key` - your ImgBB API key (get one at https://api.imgbb.com/)
 - `auto_upload` - upload after every capture (default: false)
+- `open_editor_after_capture` - annotate before the after-capture steps run (default: true)
 - `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)
 - `image_format` - `png`, `jpg`, or `webp` (default: png)
 - `copy_image_to_clipboard` - copy image to clipboard (default: true)

@@ -83,6 +83,8 @@ class SettingsForm(QWidget):
 
         capture = QGroupBox("Capture")
         form = QFormLayout(capture)
+        self.open_editor = QCheckBox("Open the annotation editor after each capture")
+        form.addRow("", self.open_editor)
         self.copy_image = QCheckBox("Copy image to clipboard")
         form.addRow("", self.copy_image)
         self.show_notification = QCheckBox("Show desktop notifications")
@@ -195,6 +197,7 @@ class SettingsForm(QWidget):
         self.custom_uploader.setPlainText(json.dumps(spec, indent=2) if spec else "")
         self.auto_upload.setChecked(bool(cfg["auto_upload"]))
         self.copy_url.setChecked(bool(cfg["copy_url_to_clipboard"]))
+        self.open_editor.setChecked(bool(cfg["open_editor_after_capture"]))
         self.copy_image.setChecked(bool(cfg["copy_image_to_clipboard"]))
         self.show_notification.setChecked(bool(cfg["show_notification"]))
         self.image_format.setCurrentText(cfg["image_format"] or "png")
@@ -231,6 +234,7 @@ class SettingsForm(QWidget):
         cfg["custom_uploader"] = custom_spec
         cfg["auto_upload"] = self.auto_upload.isChecked()
         cfg["copy_url_to_clipboard"] = self.copy_url.isChecked()
+        cfg["open_editor_after_capture"] = self.open_editor.isChecked()
         cfg["copy_image_to_clipboard"] = self.copy_image.isChecked()
         cfg["show_notification"] = self.show_notification.isChecked()
         cfg["image_format"] = self.image_format.currentText()

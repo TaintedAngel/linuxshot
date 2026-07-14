@@ -32,6 +32,7 @@ from ..app import App
 from ..capture import CaptureMode
 from ..config import Config
 from ..history import History, HistoryEntry
+from .editor import EditorBridge, open_editor
 from .icons import app_icon, theme_icon
 from .settings import SettingsForm
 
@@ -51,6 +52,7 @@ class MainWindow(QMainWindow):
         self.app = App()
         self.config = Config.get()
         self.history = History()
+        self.editor_bridge = EditorBridge()
 
         self.task_done.connect(self._on_task_done)
         self._build()
@@ -207,6 +209,7 @@ class MainWindow(QMainWindow):
             return action
 
         add("Open image", lambda: self._open_entry(), exists)
+        add("Edit", lambda: self._edit_entry(entry), exists)
         add("Open containing folder", lambda: self._open_folder(entry))
         menu.addSeparator()
         add("Copy image", lambda: self._copy_image(entry), exists)
@@ -225,6 +228,11 @@ class MainWindow(QMainWindow):
         entry = self._selected_entry()
         if entry and os.path.isfile(entry.filepath):
             QDesktopServices.openUrl(QUrl.fromLocalFile(entry.filepath))
+
+    def _edit_entry(self, entry: HistoryEntry) -> None:
+        if open_editor(entry.filepath) == "done":
+            self.refresh_history()
+            self.statusBar().showMessage("Image saved", 4000)
 
     def _open_folder(self, entry: HistoryEntry) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(entry.filepath)))
@@ -298,9 +306,11 @@ class MainWindow(QMainWindow):
     def start_capture(self, mode: CaptureMode) -> None:
         """Hide the window, capture, then come back with history refreshed."""
         self.hide()
+        editor = (self.editor_bridge.edit
+                  if self.config["open_editor_after_capture"] else None)
 
         def worker() -> None:
-            ok = self.app.run_capture(mode)
+            ok = self.app.run_capture(mode, editor=editor)
             self.task_done.emit(
                 "Capture finished" if ok else "Capture cancelled", True
             )

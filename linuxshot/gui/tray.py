@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from ..app import App
 from ..capture import CaptureMode
 from ..config import Config
+from .editor import EditorBridge
 from .icons import app_icon, ensure_icon_installed
 from .main_window import MainWindow
 
@@ -35,6 +36,7 @@ class Tray(QObject):
         self.qt_app = qt_app
         self.app = App()
         self.config = Config.get()
+        self.editor_bridge = EditorBridge()
         self._window: MainWindow | None = None
 
         self.icon = QSystemTrayIcon(app_icon())
@@ -88,8 +90,11 @@ class Tray(QObject):
     # -- Actions ------------------------------------------------------------
 
     def capture(self, mode: CaptureMode) -> None:
+        editor = (self.editor_bridge.edit
+                  if self.config["open_editor_after_capture"] else None)
         threading.Thread(
-            target=self.app.run_capture, args=(mode,), daemon=True
+            target=self.app.run_capture, args=(mode,),
+            kwargs={"editor": editor}, daemon=True,
         ).start()
 
     def show_window(self) -> None:

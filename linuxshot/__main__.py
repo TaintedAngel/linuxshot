@@ -36,6 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(mode, help=f"Capture {mode}")
         p.set_defaults(func=cmd_capture, mode=mode)
 
+    p = sub.add_parser("edit", help="Annotate an image in the editor")
+    p.add_argument("file", help="Path to the image to edit")
+    p.set_defaults(func=cmd_edit)
+
     p = sub.add_parser("upload", help="Upload a file")
     p.add_argument("file", help="Path to the file to upload")
     p.add_argument("-s", "--service", metavar="NAME",
@@ -82,7 +86,33 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_capture(args) -> int:
     from .app import App
-    return 0 if App().run_capture(CaptureMode(args.mode)) else 1
+    from .config import Config
+
+    editor = None
+    if Config.get()["open_editor_after_capture"]:
+        try:
+            from .gui.editor import run_editor_standalone
+            editor = run_editor_standalone
+        except ImportError:
+            pass  # capture still works without Qt, just unannotated
+    return 0 if App().run_capture(CaptureMode(args.mode), editor=editor) else 1
+
+
+def cmd_edit(args) -> int:
+    import os
+
+    if not os.path.isfile(args.file):
+        print(f"error: no such file: {args.file}", file=sys.stderr)
+        return 1
+    try:
+        from .gui.editor import run_editor_standalone
+    except ImportError as e:
+        print(f"error: the editor requires PySide6: {e}", file=sys.stderr)
+        return 1
+    outcome = run_editor_standalone(args.file)
+    if outcome == "done":
+        print(f"Saved: {args.file}")
+    return 0
 
 
 def cmd_upload(args) -> int:

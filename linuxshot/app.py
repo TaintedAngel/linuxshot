@@ -21,9 +21,14 @@ class App:
         self.history = History()
         self.capture_engine = Capture()
 
-    def run_capture(self, mode: CaptureMode) -> bool:
+    def run_capture(self, mode: CaptureMode, editor=None) -> bool:
         """Run the full pipeline. Returns False if the capture failed or
         the user cancelled the selection.
+
+        *editor* is an optional callable (filepath -> outcome) that runs
+        between capture and the after-capture steps; it may rewrite the
+        file in place. Outcome "discard" aborts the pipeline and deletes
+        the capture.
         """
         try:
             result = self.capture_engine.capture(mode)
@@ -33,6 +38,17 @@ class App:
             return False
         if result is None:
             return False
+
+        if editor is not None:
+            if editor(result.filepath) == "discard":
+                try:
+                    os.remove(result.filepath)
+                except OSError:
+                    pass
+                print("Capture discarded.")
+                return False
+            if os.path.exists(result.filepath):
+                result.filesize = os.path.getsize(result.filepath)
 
         print(f"Screenshot saved: {result.filepath}")
 

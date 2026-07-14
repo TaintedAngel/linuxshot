@@ -19,6 +19,7 @@ DEFAULTS: dict[str, Any] = {
     "image_format": "png",  # png, jpg, webp
     "jpg_quality": 95,
     "open_after_capture": False,
+    "open_editor_after_capture": True,
     "copy_image_to_clipboard": True,
     "play_sound": False,
 
