@@ -1,60 +1,43 @@
-"""Clipboard integration for Wayland and X11."""
+"""Clipboard access through wl-copy (Wayland) or xclip (X11)."""
 
 import subprocess
 
-from .utils import DisplayServer, get_display_server, run_cmd
+from .utils import DisplayServer, get_display_server
 
 
 def copy_text(text: str) -> bool:
-    """Copy text to the clipboard."""
-    ds = get_display_server()
-    try:
-        if ds == DisplayServer.WAYLAND:
-            proc = subprocess.Popen(
-                ["wl-copy", "--", text],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            proc.wait(timeout=5)
-            return proc.returncode == 0
-        else:
-            proc = subprocess.Popen(
-                ["xclip", "-selection", "clipboard"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            proc.communicate(input=text.encode(), timeout=5)
-            return proc.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+    if get_display_server() == DisplayServer.WAYLAND:
+        cmd = ["wl-copy", "--", text]
+        stdin = None
+    else:
+        cmd = ["xclip", "-selection", "clipboard"]
+        stdin = text.encode()
+    return _run(cmd, stdin)
 
 
 def copy_image(filepath: str) -> bool:
-    """Copy an image file to the clipboard."""
-    ds = get_display_server()
     try:
-        if ds == DisplayServer.WAYLAND:
-            # wl-copy can read from a file with --type
-            with open(filepath, "rb") as f:
-                proc = subprocess.Popen(
-                    ["wl-copy", "--type", "image/png"],
-                    stdin=f,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                proc.wait(timeout=10)
-                return proc.returncode == 0
-        else:
-            with open(filepath, "rb") as f:
-                proc = subprocess.Popen(
-                    ["xclip", "-selection", "clipboard", "-t", "image/png"],
-                    stdin=f,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                proc.wait(timeout=10)
-                return proc.returncode == 0
+        with open(filepath, "rb") as f:
+            data = f.read()
+    except OSError:
+        return False
+
+    if get_display_server() == DisplayServer.WAYLAND:
+        cmd = ["wl-copy", "--type", "image/png"]
+    else:
+        cmd = ["xclip", "-selection", "clipboard", "-t", "image/png"]
+    return _run(cmd, data, timeout=10)
+
+
+def _run(cmd: list[str], stdin: bytes | None, timeout: int = 5) -> bool:
+    try:
+        result = subprocess.run(
+            cmd,
+            input=stdin,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+        )
+        return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False

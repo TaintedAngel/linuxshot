@@ -1,8 +1,9 @@
-"""Capture history management for LinuxShot."""
+"""Capture history, persisted as JSON in the XDG data dir."""
 
 import json
 import os
-from dataclasses import asdict, dataclass, field
+import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime
 
 from .config import Config
@@ -11,14 +12,12 @@ from .utils import get_data_dir
 
 @dataclass
 class HistoryEntry:
-    """A single capture history entry."""
     filepath: str
     timestamp: str
     mode: str  # region, fullscreen, window
     filesize: int = 0
     uploaded: bool = False
     upload_url: str = ""
-    delete_hash: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "HistoryEntry":
@@ -29,56 +28,40 @@ class HistoryEntry:
             filesize=data.get("filesize", 0),
             uploaded=data.get("uploaded", False),
             upload_url=data.get("upload_url", ""),
-            delete_hash=data.get("delete_hash", ""),
         )
 
 
 class History:
-    """Manages the capture history log."""
-
     HISTORY_FILE = "history.json"
 
     def __init__(self):
-        self._data_dir = get_data_dir()
-        self._history_path = os.path.join(self._data_dir, self.HISTORY_FILE)
+        self._path = os.path.join(get_data_dir(), self.HISTORY_FILE)
         self._entries: list[HistoryEntry] = []
         self.load()
 
     def load(self) -> None:
-        """Load history from disk."""
-        if not os.path.exists(self._history_path):
-            self._entries = []
-            return
         try:
-            with open(self._history_path, "r") as f:
+            with open(self._path) as f:
                 raw = json.load(f)
             self._entries = [HistoryEntry.from_dict(e) for e in raw]
-        except (json.JSONDecodeError, OSError):
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
             self._entries = []
 
     def save(self) -> None:
-        """Save history to disk."""
-        config = Config.get()
-        max_entries = config["max_history_entries"]
-        # Trim to max entries
+        max_entries = Config.get()["max_history_entries"]
         if len(self._entries) > max_entries:
             self._entries = self._entries[-max_entries:]
+        tmp = self._path + ".tmp"
         try:
-            with open(self._history_path, "w") as f:
+            with open(tmp, "w") as f:
                 json.dump([asdict(e) for e in self._entries], f, indent=2)
+                f.write("\n")
+            os.replace(tmp, self._path)
         except OSError as e:
-            print(f"Warning: Failed to save history: {e}")
+            print(f"warning: could not save history: {e}", file=sys.stderr)
 
-    def add(
-        self,
-        filepath: str,
-        mode: str,
-        filesize: int = 0,
-        uploaded: bool = False,
-        upload_url: str = "",
-        delete_hash: str = "",
-    ) -> HistoryEntry:
-        """Add a new entry to history."""
+    def add(self, filepath: str, mode: str, filesize: int = 0,
+            uploaded: bool = False, upload_url: str = "") -> HistoryEntry:
         entry = HistoryEntry(
             filepath=filepath,
             timestamp=datetime.now().isoformat(),
@@ -86,31 +69,33 @@ class History:
             filesize=filesize,
             uploaded=uploaded,
             upload_url=upload_url,
-            delete_hash=delete_hash,
         )
         self._entries.append(entry)
         self.save()
         return entry
 
-    def update_upload(self, filepath: str, url: str, delete_hash: str = "") -> None:
-        """Update an existing entry with upload info."""
+    def update_upload(self, filepath: str, url: str) -> None:
+        """Mark the most recent entry for *filepath* as uploaded."""
         for entry in reversed(self._entries):
             if entry.filepath == filepath:
                 entry.uploaded = True
                 entry.upload_url = url
-                entry.delete_hash = delete_hash
                 self.save()
                 return
 
+    def remove(self, filepath: str, timestamp: str = "") -> None:
+        self._entries = [
+            e for e in self._entries
+            if not (e.filepath == filepath and (not timestamp or e.timestamp == timestamp))
+        ]
+        self.save()
+
     def get_entries(self, limit: int = 0) -> list[HistoryEntry]:
-        """Get history entries, newest first."""
+        """Entries newest-first, optionally limited."""
         entries = list(reversed(self._entries))
-        if limit > 0:
-            return entries[:limit]
-        return entries
+        return entries[:limit] if limit > 0 else entries
 
     def clear(self) -> None:
-        """Clear all history."""
         self._entries = []
         self.save()
 
@@ -120,4 +105,4 @@ class History:
 
     @property
     def path(self) -> str:
-        return self._history_path
+        return self._path

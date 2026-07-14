@@ -1,16 +1,7 @@
-"""LinuxShot CLI entry point.
+"""Command line interface.
 
-Usage:
-    linuxshot region          Capture a selected region (like ShareX Print Screen)
-    linuxshot fullscreen      Capture the full screen (like ShareX Ctrl+Print Screen)
-    linuxshot window          Capture the active window (like ShareX Alt+Print Screen)
-    linuxshot upload <file>   Upload a file to ImgBB
-    linuxshot upload-last     Upload the most recent capture
-    linuxshot history         Show recent capture history
-    linuxshot config          Show/edit configuration
-    linuxshot tray            Start the system tray daemon
-    linuxshot gui             Open the main window
-    linuxshot check           Check system dependencies
+Heavy imports (Qt, DBus) are deferred into the command handlers so that
+`linuxshot region` from a keybind stays fast.
 """
 
 import argparse
@@ -22,148 +13,89 @@ from .capture import CaptureMode
 
 
 def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.command is None:
+        # Bare `linuxshot` starts the tray, matching how ShareX lives in
+        # the notification area.
+        return cmd_tray(args)
+    return args.func(args)
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="linuxshot",
-        description=f"{__app_name__} v{__version__} - ShareX-inspired screenshot tool for Linux",
+        description=f"{__app_name__} {__version__} - ShareX-inspired screenshot tool for Linux",
     )
     parser.add_argument(
         "-v", "--version", action="version", version=f"{__app_name__} {__version__}"
     )
+    sub = parser.add_subparsers(dest="command")
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    for mode in ("region", "fullscreen", "window"):
+        p = sub.add_parser(mode, help=f"Capture {mode}")
+        p.set_defaults(func=cmd_capture, mode=mode)
 
-    # ── Capture commands ───────────────────────────────────────────────
-    subparsers.add_parser("region", help="Capture a selected screen region")
-    subparsers.add_parser("fullscreen", help="Capture the entire screen")
-    subparsers.add_parser("window", help="Capture the active window")
+    p = sub.add_parser("upload", help="Upload a file to ImgBB")
+    p.add_argument("file", help="Path to the file to upload")
+    p.set_defaults(func=cmd_upload)
 
-    # ── Upload commands ────────────────────────────────────────────────
-    upload_parser = subparsers.add_parser("upload", help="Upload a file to ImgBB")
-    upload_parser.add_argument("file", help="Path to the file to upload")
+    p = sub.add_parser("upload-last", help="Upload the most recent capture")
+    p.set_defaults(func=cmd_upload_last)
 
-    subparsers.add_parser("upload-last", help="Upload the most recent capture")
+    p = sub.add_parser("history", help="Show capture history")
+    p.add_argument("-n", "--limit", type=int, default=10, help="Number of entries to show")
+    p.add_argument("--clear", action="store_true", help="Clear all history")
+    p.add_argument("--json", action="store_true", dest="as_json", help="Output as JSON")
+    p.set_defaults(func=cmd_history)
 
-    # ── History ────────────────────────────────────────────────────────
-    history_parser = subparsers.add_parser("history", help="Show capture history")
-    history_parser.add_argument(
-        "-n", "--limit", type=int, default=10, help="Number of entries to show"
-    )
-    history_parser.add_argument(
-        "--clear", action="store_true", help="Clear all history"
-    )
-    history_parser.add_argument(
-        "--json", action="store_true", dest="as_json", help="Output as JSON"
-    )
+    p = sub.add_parser("config", help="View or edit configuration")
+    p.add_argument("--path", action="store_true", help="Show config file path")
+    p.add_argument("--reset", action="store_true", help="Reset to defaults")
+    p.add_argument("--set", nargs=2, metavar=("KEY", "VALUE"), help="Set a config value")
+    p.add_argument("--get", metavar="KEY", help="Get a config value")
+    p.set_defaults(func=cmd_config)
 
-    # ── Config ─────────────────────────────────────────────────────────
-    config_parser = subparsers.add_parser("config", help="View or edit configuration")
-    config_parser.add_argument("--path", action="store_true", help="Show config file path")
-    config_parser.add_argument("--reset", action="store_true", help="Reset to defaults")
-    config_parser.add_argument(
-        "--set", nargs=2, metavar=("KEY", "VALUE"), help="Set a config value"
-    )
-    config_parser.add_argument(
-        "--get", metavar="KEY", help="Get a config value"
-    )
+    p = sub.add_parser("tray", help="Start the system tray icon")
+    p.set_defaults(func=cmd_tray)
 
-    # ── Tray / GUI ─────────────────────────────────────────────────────
-    subparsers.add_parser("tray", help="Start the system tray icon")
-    subparsers.add_parser("gui", help="Open the main LinuxShot window")
+    p = sub.add_parser("gui", help="Open the main window")
+    p.set_defaults(func=cmd_gui)
 
-    # ── Setup & Auth ───────────────────────────────────────────────────
-    subparsers.add_parser(
+    p = sub.add_parser(
         "setup",
-        help="Configure PrtSc shortcuts, disable Spectacle, install tray icon & autostart",
+        help="Register shortcuts, install desktop file and autostart (KDE)",
     )
+    p.set_defaults(func=cmd_setup)
 
-    # ── Update ──────────────────────────────────────────────────────────
-    subparsers.add_parser(
-        "update",
-        help="Update LinuxShot to the latest version from GitHub",
-    )
+    p = sub.add_parser("update", help="Update LinuxShot from GitHub")
+    p.set_defaults(func=cmd_update)
 
-    # ── Diagnostics ────────────────────────────────────────────────────
-    subparsers.add_parser("check", help="Check system dependencies")
+    p = sub.add_parser("check", help="Check system dependencies")
+    p.set_defaults(func=cmd_check)
 
-    args = parser.parse_args()
-
-    if args.command is None:
-        # No command given → start the tray daemon (like ShareX)
-        return _cmd_tray()
-
-    # ── Route commands ─────────────────────────────────────────────────
-
-    if args.command in ("region", "fullscreen", "window"):
-        return _cmd_capture(args.command)
-
-    if args.command == "upload":
-        return _cmd_upload(args.file)
-
-    if args.command == "upload-last":
-        return _cmd_upload_last()
-
-    if args.command == "history":
-        return _cmd_history(args)
-
-    if args.command == "config":
-        return _cmd_config(args)
-
-    if args.command == "tray":
-        return _cmd_tray()
-
-    if args.command == "gui":
-        return _cmd_gui()
-
-    if args.command == "check":
-        return _cmd_check()
-
-    if args.command == "setup":
-        return _cmd_setup()
-
-    if args.command == "update":
-        return _cmd_update()
-
-    parser.print_help()
-    return 0
+    return parser
 
 
-# ── Command implementations ───────────────────────────────────────────
-
-
-def _cmd_capture(mode_name: str) -> int:
+def cmd_capture(args) -> int:
     from .app import App
-
-    mode_map = {
-        "region": CaptureMode.REGION,
-        "fullscreen": CaptureMode.FULLSCREEN,
-        "window": CaptureMode.WINDOW,
-    }
-    app = App()
-    success = app.run_capture(mode_map[mode_name])
-    return 0 if success else 1
+    return 0 if App().run_capture(CaptureMode(args.mode)) else 1
 
 
-def _cmd_upload(filepath: str) -> int:
+def cmd_upload(args) -> int:
     from .app import App
-
-    app = App()
-    url = app.upload_file(filepath)
-    return 0 if url else 1
+    return 0 if App().upload_file(args.file) else 1
 
 
-def _cmd_upload_last() -> int:
+def cmd_upload_last(args) -> int:
     from .app import App
-
-    app = App()
-    url = app.upload_last()
-    return 0 if url else 1
+    return 0 if App().upload_last() else 1
 
 
-def _cmd_history(args) -> int:
+def cmd_history(args) -> int:
     from .history import History
 
     history = History()
-
     if args.clear:
         history.clear()
         print("History cleared.")
@@ -179,23 +111,20 @@ def _cmd_history(args) -> int:
         print(json.dumps([asdict(e) for e in entries], indent=2))
         return 0
 
-    # Pretty print
-    for i, entry in enumerate(entries, 1):
-        status = "↑" if entry.uploaded else "•"
+    for entry in entries:
+        marker = "^" if entry.uploaded else "-"
         size_kb = entry.filesize / 1024
-        print(f"  {status} [{entry.timestamp[:19]}] {entry.filepath} ({size_kb:.0f} KB)")
+        print(f"  {marker} [{entry.timestamp[:19]}] {entry.filepath} ({size_kb:.0f} KB)")
         if entry.upload_url:
-            print(f"    URL: {entry.upload_url}")
-
+            print(f"      {entry.upload_url}")
     print(f"\n  Total: {history.count} captures")
     return 0
 
 
-def _cmd_config(args) -> int:
+def cmd_config(args) -> int:
     from .config import Config
 
     config = Config.get()
-
     if args.path:
         print(config.path)
         return 0
@@ -206,56 +135,56 @@ def _cmd_config(args) -> int:
         return 0
 
     if args.set:
-        key, value = args.set
-        # Try to parse as JSON value (handles bools, ints, etc.)
+        key, raw = args.set
+        if not config.is_known_key(key):
+            print(f"Unknown key: {key}", file=sys.stderr)
+            print("Run 'linuxshot config' to list valid keys.", file=sys.stderr)
+            return 1
         try:
-            value = json.loads(value)
+            value = json.loads(raw)  # parses bools/ints; strings fall through
         except json.JSONDecodeError:
-            pass  # Keep as string
+            value = raw
         config[key] = value
         config.save()
         print(f"Set {key} = {value!r}")
         return 0
 
     if args.get:
-        value = config[args.get]
-        if value is None:
+        if not config.is_known_key(args.get):
             print(f"Unknown key: {args.get}", file=sys.stderr)
             return 1
-        print(f"{args.get} = {value!r}")
+        print(f"{args.get} = {config[args.get]!r}")
         return 0
 
-    # Show all config
     print(f"Config file: {config.path}\n")
     for key, value in sorted(config.data.items()):
         print(f"  {key} = {value!r}")
-
     return 0
 
 
-def _cmd_tray() -> int:
+def cmd_tray(args) -> int:
     try:
-        from .tray import run_tray
-        run_tray()
-        return 0
+        from .gui.tray import run_tray
     except ImportError as e:
-        print(f"Error: System tray requires PySide6: {e}", file=sys.stderr)
-        print("Install with: pip install PySide6", file=sys.stderr)
+        print(f"error: the tray requires PySide6: {e}", file=sys.stderr)
+        print("Install it with: pip install PySide6", file=sys.stderr)
         return 1
+    run_tray()
+    return 0
 
 
-def _cmd_gui() -> int:
+def cmd_gui(args) -> int:
     try:
-        from .ui.main_window import run_gui
-        run_gui()
-        return 0
+        from .gui.main_window import run_gui
     except ImportError as e:
-        print(f"Error: GUI requires PySide6 or GTK3: {e}", file=sys.stderr)
-        print("Install with: pip install PySide6", file=sys.stderr)
+        print(f"error: the GUI requires PySide6: {e}", file=sys.stderr)
+        print("Install it with: pip install PySide6", file=sys.stderr)
         return 1
+    run_gui()
+    return 0
 
 
-def _cmd_setup() -> int:
+def cmd_setup(args) -> int:
     from .shortcuts import setup_all
 
     success, messages = setup_all()
@@ -264,26 +193,26 @@ def _cmd_setup() -> int:
     return 0 if success else 1
 
 
-def _cmd_update() -> int:
+def cmd_update(args) -> int:
     import subprocess
+
     print("Updating LinuxShot from GitHub...")
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade",
-         "git+https://github.com/TaintedAngel/linuxshot.git"],
-        capture_output=False,
-    )
+    result = subprocess.run([
+        sys.executable, "-m", "pip", "install", "--upgrade",
+        "git+https://github.com/TaintedAngel/linuxshot.git",
+    ])
     if result.returncode == 0:
-        print("\nLinuxShot updated successfully!")
-        print("Restart the tray to apply changes: linuxshot tray")
+        print("\nLinuxShot updated. Restart the tray to apply: linuxshot tray")
     else:
         print("\nUpdate failed. Try manually:", file=sys.stderr)
-        print("  pip install --upgrade git+https://github.com/TaintedAngel/linuxshot.git", file=sys.stderr)
+        print("  pip install --upgrade git+https://github.com/TaintedAngel/linuxshot.git",
+              file=sys.stderr)
     return result.returncode
 
 
-def _cmd_check() -> int:
+def cmd_check(args) -> int:
+    from .capture import detect_wayland_backend
     from .utils import check_dependencies, get_display_server
-    from .capture import _detect_wayland_backend
 
     ds = get_display_server()
     print(f"Display server: {ds.value}\n")
@@ -291,74 +220,65 @@ def _cmd_check() -> int:
     deps = check_dependencies()
 
     if ds.value == "wayland":
-        backend = _detect_wayland_backend()
+        backend = detect_wayland_backend()
         print(f"Wayland backend: {backend}\n")
         print("Wayland tools:")
-        _print_dep("  spectacle", deps["spectacle"], "KDE screenshot tool")
-        _print_dep("  gnome-screenshot", deps["gnome-screenshot"], "GNOME screenshot tool")
-        _print_dep("  grim", deps["grim"], "wlroots screenshot capture")
-        _print_dep("  slurp", deps["slurp"], "wlroots region selection")
-        _print_dep("  wl-copy", deps["wl-copy"], "Clipboard (wl-clipboard)")
-        _print_dep("  wl-paste", deps["wl-paste"], "Clipboard image retrieval")
+        _print_dep("spectacle", deps["spectacle"], "KDE screenshot tool")
+        _print_dep("gnome-screenshot", deps["gnome-screenshot"], "GNOME screenshot tool")
+        _print_dep("grim", deps["grim"], "wlroots screenshot capture")
+        _print_dep("slurp", deps["slurp"], "wlroots region selection")
+        _print_dep("wl-copy", deps["wl-copy"], "clipboard (wl-clipboard)")
+        _print_dep("wl-paste", deps["wl-paste"], "clipboard image retrieval")
+        required = {
+            "spectacle": ["spectacle", "wl-copy", "wl-paste"],
+            "gnome-screenshot": ["gnome-screenshot", "wl-copy"],
+            "grim": ["grim", "slurp", "wl-copy"],
+        }.get(backend)
     else:
         print("X11 tools:")
-        _print_dep("  maim", deps["maim"], "Screenshot capture")
-        _print_dep("  xdotool", deps["xdotool"], "Window detection")
-        _print_dep("  xclip", deps["xclip"], "Clipboard")
+        _print_dep("maim", deps["maim"], "screenshot capture")
+        _print_dep("xdotool", deps["xdotool"], "window detection")
+        _print_dep("xclip", deps["xclip"], "clipboard")
+        required = ["maim", "xclip"]
 
     print("\nCommon tools:")
-    _print_dep("  notify-send", deps["notify-send"], "Desktop notifications (libnotify)")
+    _print_dep("notify-send", deps["notify-send"], "desktop notifications (libnotify)")
 
-    # Check Python packages
     print("\nPython packages:")
-    _check_python_pkg("  requests", "requests")
-    _check_python_pkg("  Pillow", "PIL")
-    _check_python_pkg("  PyGObject", "gi")
-
-    # Summary
-    all_ok = True
-    if ds.value == "wayland":
-        backend = _detect_wayland_backend()
-        if backend == "spectacle":
-            required = ["spectacle", "wl-copy", "wl-paste"]
-        elif backend == "gnome-screenshot":
-            required = ["gnome-screenshot", "wl-copy"]
-        elif backend == "grim":
-            required = ["grim", "slurp", "wl-copy"]
-        else:
-            required = []
-            all_ok = False
-    else:
-        required = ["maim", "xclip"]
-    for dep in required:
-        if not deps[dep]:
-            all_ok = False
+    for name, module in (("requests", "requests"), ("PySide6", "PySide6"),
+                         ("PyGObject", "gi"), ("dbus-python", "dbus")):
+        _print_dep(name, _importable(module), "")
 
     print()
-    if all_ok:
-        print("All required dependencies are installed!")
-    else:
-        missing = [d for d in required if not deps[d]]
+    if required is None:
+        print("No usable Wayland screenshot backend found.")
+        print("Run ./setup.sh to install dependencies.")
+        return 1
+
+    missing = [d for d in required if not deps[d]]
+    if missing:
         print(f"Missing required: {', '.join(missing)}")
         print("Run ./setup.sh to install dependencies.")
+        return 1
 
-    return 0 if all_ok else 1
+    print("All required dependencies are installed.")
+    return 0
 
 
 def _print_dep(name: str, available: bool, desc: str) -> None:
-    status = "✓" if available else "✗"
-    color = "\033[32m" if available else "\033[31m"
-    reset = "\033[0m"
-    print(f"  {color}{status}{reset} {name} - {desc}")
+    if available:
+        status = "\033[32mok\033[0m     "
+    else:
+        status = "\033[31mmissing\033[0m"
+    print(f"  {status} {name}" + (f" - {desc}" if desc else ""))
 
 
-def _check_python_pkg(name: str, import_name: str) -> None:
+def _importable(module: str) -> bool:
     try:
-        __import__(import_name)
-        available = True
+        __import__(module)
+        return True
     except ImportError:
-        available = False
-    _print_dep(name, available, "")
+        return False
 
 
 if __name__ == "__main__":

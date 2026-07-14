@@ -1,10 +1,11 @@
-"""Main application logic for LinuxShot.
+"""Capture pipeline: screenshot -> clipboard -> upload -> notify -> history.
 
-Orchestrates the capture → upload → clipboard → notify pipeline,
-just like ShareX's after-capture task system.
+This mirrors ShareX's after-capture task chain, with each step gated by
+config so users can turn any of it off.
 """
 
 import os
+import subprocess
 import sys
 
 from . import clipboard, notify
@@ -15,58 +16,41 @@ from .upload import UploadError, upload
 
 
 class App:
-    """LinuxShot application coordinator."""
-
     def __init__(self):
         self.config = Config.get()
         self.history = History()
         self.capture_engine = Capture()
 
     def run_capture(self, mode: CaptureMode) -> bool:
-        """Execute the full capture pipeline.
-
-        1. Take screenshot
-        2. Copy image to clipboard (if configured)
-        3. Upload to Imgur (if configured)
-        4. Copy URL to clipboard (if configured)
-        5. Show notification
-        6. Save to history
-
-        Returns True if capture was successful, False if cancelled.
+        """Run the full pipeline. Returns False if the capture failed or
+        the user cancelled the selection.
         """
-        # ── Step 1: Capture ────────────────────────────────────────────
         try:
             result = self.capture_engine.capture(mode)
         except CaptureError as e:
             notify.notify_error(str(e))
-            print(f"Error: {e}", file=sys.stderr)
+            print(f"error: {e}", file=sys.stderr)
             return False
-
         if result is None:
-            # User cancelled (pressed Escape, etc.)
             return False
 
         print(f"Screenshot saved: {result.filepath}")
 
-        # ── Step 2: Copy image to clipboard ────────────────────────────
         if self.config["copy_image_to_clipboard"]:
             if clipboard.copy_image(result.filepath):
                 print("Image copied to clipboard.")
             else:
-                print("Warning: Failed to copy image to clipboard.", file=sys.stderr)
+                print("warning: could not copy image to clipboard", file=sys.stderr)
 
-        # ── Step 3: Always notify capture success first ────────────────
         if self.config["show_notification"]:
             notify.notify_capture_success(result.filepath)
 
-        # ── Step 4: Upload (if auto-upload is enabled) ─────────────────
         upload_url = ""
         if self.config["auto_upload"]:
-            upload_url = self._do_upload(result)
+            upload_url = self._upload_capture(result)
             if upload_url and self.config["show_notification"]:
                 notify.notify_upload_success(upload_url)
 
-        # ── Step 5: Save to history ────────────────────────────────────
         if self.config["save_history"]:
             self.history.add(
                 filepath=result.filepath,
@@ -75,14 +59,10 @@ class App:
                 uploaded=bool(upload_url),
                 upload_url=upload_url,
             )
-
         return True
 
     def upload_file(self, filepath: str) -> str | None:
-        """Upload an existing file.
-
-        Returns the URL on success, None on failure.
-        """
+        """Upload an existing file, returning its URL or None on failure."""
         if not os.path.exists(filepath):
             notify.notify_error(f"File not found: {filepath}")
             return None
@@ -91,30 +71,22 @@ class App:
             result = upload(filepath)
         except UploadError as e:
             notify.notify_error(str(e))
-            print(f"Upload error: {e}", file=sys.stderr)
+            print(f"upload error: {e}", file=sys.stderr)
             return None
 
-        url = result.url
-        print(f"Uploaded: {url}")
-
-        # Copy URL to clipboard
+        print(f"Uploaded: {result.url}")
         if self.config["copy_url_to_clipboard"]:
-            if clipboard.copy_text(url):
+            if clipboard.copy_text(result.url):
                 print("URL copied to clipboard.")
             else:
-                print("Warning: Failed to copy URL to clipboard.", file=sys.stderr)
+                print("warning: could not copy URL to clipboard", file=sys.stderr)
 
-        # Update history entry
-        self.history.update_upload(filepath, url, result.delete_hash)
-
-        # Notify
+        self.history.update_upload(filepath, result.url)
         if self.config["show_notification"]:
-            notify.notify_upload_success(url)
-
-        return url
+            notify.notify_upload_success(result.url)
+        return result.url
 
     def upload_last(self) -> str | None:
-        """Upload the most recent capture."""
         entries = self.history.get_entries(limit=1)
         if not entries:
             print("No captures in history.", file=sys.stderr)
@@ -122,27 +94,21 @@ class App:
         return self.upload_file(entries[0].filepath)
 
     def open_screenshots_dir(self) -> None:
-        """Open the screenshots directory in the file manager."""
-        screenshot_dir = self.config.get_screenshot_dir()
+        path = self.config.get_screenshot_dir()
         try:
-            import subprocess
-            subprocess.Popen(["xdg-open", screenshot_dir])
+            subprocess.Popen(["xdg-open", path])
         except FileNotFoundError:
-            print(f"Screenshots directory: {screenshot_dir}")
+            print(f"Screenshots directory: {path}")
 
-    def _do_upload(self, result: CaptureResult) -> str:
-        """Handle upload and clipboard copy for a capture result."""
+    def _upload_capture(self, result: CaptureResult) -> str:
         try:
             upload_result = upload(result.filepath)
-            url = upload_result.url
-            print(f"Uploaded: {url}")
-
-            if self.config["copy_url_to_clipboard"]:
-                if clipboard.copy_text(url):
-                    print("URL copied to clipboard.")
-
-            return url
         except UploadError as e:
             notify.notify_error(f"Upload failed: {e}")
-            print(f"Upload error: {e}", file=sys.stderr)
+            print(f"upload error: {e}", file=sys.stderr)
             return ""
+
+        print(f"Uploaded: {upload_result.url}")
+        if self.config["copy_url_to_clipboard"] and clipboard.copy_text(upload_result.url):
+            print("URL copied to clipboard.")
+        return upload_result.url
