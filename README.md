@@ -13,13 +13,12 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 ## Features
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
-- Upload to **ImgBB** — direct `i.ibb.co` links that work everywhere (Perplexity, Discord, etc)
+- Upload to **ImgBB** — direct `i.ibb.co` links that work everywhere (Discord, forums, etc)
+- ShareX-style main window: action sidebar, searchable capture history with thumbnails, settings
 - Global keyboard shortcuts on KDE Plasma via KGlobalAccel
 - Desktop notifications on capture and upload
-- System tray icon (PySide6/Qt) with context menu
-- GUI settings window for shortcuts, upload, capture, and storage
-- Capture history with CLI + GUI viewer
-- Full CLI for scripting and keybinds
+- System tray icon with quick-capture context menu
+- Full CLI for scripting and compositor keybinds
 - Self-update: `linuxshot update`
 - Works on Arch/CachyOS, Debian/Ubuntu, Fedora, openSUSE, Void
 
@@ -42,20 +41,18 @@ The setup script will:
 
 ### Manual Install
 
-If you prefer to install manually:
-
 ```bash
 # Arch / CachyOS
-sudo pacman -S python python-pip python-gobject python-pillow python-requests \
-    gtk3 libnotify grim slurp wl-clipboard libayatana-appindicator
+sudo pacman -S python python-pip python-gobject python-pyside6 python-dbus \
+    python-requests libnotify grim slurp wl-clipboard
 
 # Debian / Ubuntu
-sudo apt install python3 python3-pip python3-gi python3-pil python3-requests \
-    gir1.2-gtk-3.0 libnotify-bin grim slurp wl-clipboard
+sudo apt install python3 python3-pip python3-gi python3-pyside6 python3-dbus \
+    python3-requests libnotify-bin grim slurp wl-clipboard
 
 # Fedora
-sudo dnf install python3 python3-pip python3-gobject python3-pillow python3-requests \
-    gtk3 libnotify grim slurp wl-clipboard
+sudo dnf install python3 python3-pip python3-gobject python3-pyside6 python3-dbus \
+    python3-requests libnotify grim slurp wl-clipboard
 
 # Then install LinuxShot
 pip install .
@@ -89,34 +86,34 @@ linuxshot upload-last     Upload the most recent capture
 linuxshot history         Show recent capture history
 linuxshot config          View/edit configuration
 linuxshot tray            Start the system tray icon
-linuxshot gui             Open the settings window
+linuxshot gui             Open the main window
 linuxshot setup           Register shortcuts, desktop file & autostart (KDE)
 linuxshot update          Update to the latest version from GitHub
 linuxshot check           Verify all dependencies
 ```
 
-### System Tray
+Running plain `linuxshot` starts the tray.
 
-Start LinuxShot in the background with a tray icon:
-
-```bash
-linuxshot tray
-```
-
-Right-click the tray icon for quick actions: capture, upload, toggle auto-upload, open screenshots folder, etc.
-
-To auto-start the tray on login, add `linuxshot tray` to your compositor/DE autostart config.
-
-### GUI
+### Main Window
 
 ```bash
 linuxshot gui
 ```
 
-Opens a window with three tabs:
-- **Capture** - buttons for all capture modes
-- **History** - past screenshots with upload status
-- **Settings** - ImgBB API key, image format, shortcuts, etc.
+Laid out like ShareX: capture and upload actions in a sidebar on the left,
+your capture history on the right. History entries have thumbnails, a
+filter box, and a right-click menu (open, copy image, copy URL, upload,
+delete). Settings live on their own page in the same window.
+
+### System Tray
+
+```bash
+linuxshot tray
+```
+
+Right-click the tray icon for quick actions: capture, upload, toggle auto-upload, open the screenshots folder. Left-click toggles the main window.
+
+To auto-start the tray on login, run `linuxshot setup` (KDE) or add `linuxshot tray` to your compositor/DE autostart config.
 
 ## Keyboard Shortcuts
 
@@ -128,7 +125,7 @@ On KDE Plasma 6, LinuxShot can register global shortcuts automatically:
 linuxshot setup
 ```
 
-This registers PrtSc / Ctrl+PrtSc / Alt+PrtSc (replacing Spectacle), installs the desktop file, and sets up autostart. You can also configure shortcuts from the tray's **Settings** dialog.
+This registers PrtSc / Ctrl+PrtSc / Alt+PrtSc (replacing Spectacle), installs the desktop file, and sets up autostart. You can also change shortcuts on the Settings page of the main window.
 
 ### Other desktop environments (manual)
 
@@ -210,9 +207,8 @@ linuxshot config --reset
 ## Dependencies
 
 ### Wayland
-- `grim` - screenshot capture
-- `slurp` - region selection
-- `wl-clipboard` - clipboard (wl-copy)
+- `spectacle` (KDE), `gnome-screenshot` (GNOME), or `grim` + `slurp` (wlroots)
+- `wl-clipboard` - clipboard (wl-copy / wl-paste)
 
 ### X11
 - `maim` - screenshot capture
@@ -221,10 +217,8 @@ linuxshot config --reset
 
 ### Common
 - Python 3.10+
-- PySide6 (Qt6 tray and settings)
-- PyGObject (GLib for DBus signal dispatch)
-- dbus-python (shortcut signal listener)
-- Pillow
+- PySide6 (Qt6 GUI and tray)
+- PyGObject + dbus-python (KDE global shortcut listener)
 - requests
 - libnotify (notify-send)
 
@@ -255,21 +249,28 @@ Or manually:
 pip install --upgrade git+https://github.com/TaintedAngel/linuxshot.git
 ```
 
+## Development
+
+```bash
+pip install -e .[dev]
+pytest          # run the test suite
+ruff check .    # lint
+```
+
+The test suite covers the core modules (config, history, upload, capture
+backend selection, CLI) and runs without a display or the Qt/DBus stack,
+so it works in CI. GUI changes should be checked by hand with
+`linuxshot gui` and `linuxshot tray`.
+
 ## License
 
 GPL-3.0, same as ShareX.
 
 ## Contributing
 
-Pull requests welcome! If you'd like to add features:
+Pull requests welcome! Ideas:
 
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Submit a PR
-
-Ideas for contributions:
 - Image annotation overlay
 - OCR via Tesseract
 - Screen recording via wf-recorder/ffmpeg
-- Theming support
+- More upload destinations

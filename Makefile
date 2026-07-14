@@ -34,5 +34,5 @@ dev:
 
 clean:
 	rm -rf build/ dist/ *.egg-info linuxshot/*.pyc linuxshot/__pycache__
-	rm -rf linuxshot/ui/__pycache__
+	rm -rf linuxshot/gui/__pycache__ linuxshot/resources/__pycache__
 	@echo "Cleaned build artifacts."

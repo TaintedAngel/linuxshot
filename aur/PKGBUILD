@@ -1,6 +1,6 @@
 # Maintainer: TaintedAngel <lordmaxking42@gmail.com>
 pkgname=linuxshot-git
-pkgver=1.1.0
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="ShareX-inspired screenshot and upload tool for Linux"
 arch=('any')
@@ -8,7 +8,6 @@ url="https://github.com/TaintedAngel/linuxshot"
 license=('GPL-3.0-or-later')
 depends=(
     'python>=3.10'
-    'python-pillow'
     'python-requests'
     'python-gobject'
     'python-pyside6'

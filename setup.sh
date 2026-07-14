@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BOLD}"
 echo "╔══════════════════════════════════════════════╗"
-echo "║          LinuxShot Installer v1.0.0          ║"
+echo "║          LinuxShot Installer                   ║"
 echo "║   ShareX-inspired screenshot tool for Linux  ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${RESET}"
@@ -83,7 +83,7 @@ install_deps_arch() {
     info "Installing system packages via pacman..."
 
     local pkgs=(
-        python python-pip python-gobject python-pillow python-requests
+        python python-pip python-gobject python-requests
         python-pyside6 python-dbus libnotify
     )
 
@@ -102,7 +102,7 @@ install_deps_arch() {
 
     sudo pacman -S --needed --noconfirm "${pkgs[@]}" || {
         warn "Some packages may not be in official repos. Trying without optional ones..."
-        sudo pacman -S --needed --noconfirm python python-pip python-gobject python-pillow python-requests python-dbus libnotify
+        sudo pacman -S --needed --noconfirm python python-pip python-gobject python-requests python-dbus libnotify
         if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             sudo pacman -S --needed --noconfirm wl-clipboard
             if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
@@ -122,8 +122,7 @@ install_deps_debian() {
     sudo apt update
 
     local pkgs=(
-        python3 python3-pip python3-gi python3-pil python3-requests
-        gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
+        python3 python3-pip python3-gi python3-dbus python3-requests python3-pyside6
         libnotify-bin
     )
 
@@ -139,7 +138,7 @@ install_deps_debian() {
 
     sudo apt install -y "${pkgs[@]}" || {
         warn "Some packages may not be available. Installing core deps..."
-        sudo apt install -y python3 python3-pip python3-gi python3-pil python3-requests gir1.2-gtk-3.0 libnotify-bin
+        sudo apt install -y python3 python3-pip python3-gi python3-dbus python3-requests libnotify-bin
     }
 }
 
@@ -147,8 +146,8 @@ install_deps_fedora() {
     info "Installing system packages via dnf..."
 
     local pkgs=(
-        python3 python3-pip python3-gobject python3-pillow python3-requests
-        gtk3 libnotify libayatana-appindicator-gtk3
+        python3 python3-pip python3-gobject python3-dbus python3-requests python3-pyside6
+        libnotify
     )
 
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
@@ -163,14 +162,14 @@ install_deps_fedora() {
 
     sudo dnf install -y "${pkgs[@]}" || {
         warn "Some packages may not be available. Installing core deps..."
-        sudo dnf install -y python3 python3-pip python3-gobject python3-pillow python3-requests gtk3 libnotify
+        sudo dnf install -y python3 python3-pip python3-gobject python3-dbus python3-requests libnotify
     }
 }
 
 install_deps_suse() {
     info "Installing system packages via zypper..."
-    sudo zypper install -y python3 python3-pip python3-gobject python3-Pillow python3-requests \
-        gtk3 libnotify-tools
+    sudo zypper install -y python3 python3-pip python3-gobject python3-dbus-python python3-requests \
+        libnotify-tools
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo zypper install -y grim slurp wl-clipboard
         if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
@@ -184,8 +183,8 @@ install_deps_suse() {
 
 install_deps_void() {
     info "Installing system packages via xbps..."
-    sudo xbps-install -S python3 python3-pip python3-gobject python3-Pillow python3-requests \
-        gtk+3 libnotify
+    sudo xbps-install -S python3 python3-pip python3-gobject python3-dbus-python python3-requests \
+        libnotify
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
         sudo xbps-install -S grim slurp wl-clipboard
         if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
@@ -205,8 +204,8 @@ case "$DISTRO" in
     void)   install_deps_void ;;
     *)
         warn "Unknown distro. Please install these manually:"
-        echo "  Python 3.10+, PyGObject, Pillow, requests"
-        echo "  GTK3, libnotify (notify-send)"
+        echo "  Python 3.10+, PySide6, PyGObject, dbus-python, requests"
+        echo "  libnotify (notify-send)"
         if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISPLAY_SERVER" = "both" ]; then
             echo "  Wayland: grim, slurp, wl-clipboard"
             if [[ "$DESKTOP_ENV" == *kde* || "$DESKTOP_ENV" == *plasma* ]]; then
