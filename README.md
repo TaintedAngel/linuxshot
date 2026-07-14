@@ -18,7 +18,8 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 ## Features
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
-- Upload to **ImgBB** — direct `i.ibb.co` links that work everywhere (Discord, forums, etc)
+- Upload to **ImgBB, Imgur, catbox.moe, 0x0.st**, or any self-hosted service via a custom HTTP uploader
+- Delete links are kept in history, so an upload is never irreversible
 - ShareX-style main window: action sidebar, searchable capture history with thumbnails, settings
 - Global keyboard shortcuts on KDE Plasma via KGlobalAccel
 - Desktop notifications on capture and upload
@@ -199,8 +200,40 @@ linuxshot config --set screenshot_dir /path/to/screenshots
 linuxshot config --reset
 ```
 
+### Upload destinations
+
+Pick a destination on the Settings page or with
+`linuxshot config --set upload_service <name>`:
+
+| Service  | Needs                | Delete link kept |
+| -------- | -------------------- | ---------------- |
+| `imgbb`  | API key (api.imgbb.com) | yes           |
+| `imgur`  | client ID (api.imgur.com/oauth2/addclient) | yes |
+| `catbox` | nothing (userhash optional) | with userhash |
+| `0x0`    | nothing              | yes (token)      |
+| `custom` | a JSON request spec  | if mapped        |
+
+A one-off upload can override the default: `linuxshot upload -s imgur shot.png`.
+
+The custom uploader covers self-hosted services (Zipline, Chibisafe, ...).
+Describe the request in the `custom_uploader` config key:
+
+```json
+{
+  "request_url": "https://host/api/upload",
+  "file_form_name": "file",
+  "headers": {"Authorization": "..."},
+  "response_type": "json",
+  "url_key": "files.0.url",
+  "delete_url_key": ""
+}
+```
+
+For services that answer with a plain-text URL, use `"response_type": "text"`.
+
 ### Key config options
 
+- `upload_service` - destination: `imgbb`, `imgur`, `catbox`, `0x0`, `custom` (default: imgbb)
 - `imgbb_api_key` - your ImgBB API key (get one at https://api.imgbb.com/)
 - `auto_upload` - upload after every capture (default: false)
 - `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)

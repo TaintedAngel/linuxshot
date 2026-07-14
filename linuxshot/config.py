@@ -29,7 +29,11 @@ DEFAULTS: dict[str, Any] = {
     "save_to_disk": True,
 
     # Upload
+    "upload_service": "imgbb",  # imgbb, imgur, catbox, 0x0, custom
     "imgbb_api_key": "",
+    "imgur_client_id": "",
+    "catbox_userhash": "",  # optional; enables deletion on catbox
+    "custom_uploader": {},  # see linuxshot.upload.CustomUploader
 
     # Capture
     "capture_delay": 0,

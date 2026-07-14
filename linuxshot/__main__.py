@@ -36,8 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(mode, help=f"Capture {mode}")
         p.set_defaults(func=cmd_capture, mode=mode)
 
-    p = sub.add_parser("upload", help="Upload a file to ImgBB")
+    p = sub.add_parser("upload", help="Upload a file")
     p.add_argument("file", help="Path to the file to upload")
+    p.add_argument("-s", "--service", metavar="NAME",
+                   help="Destination (imgbb, imgur, catbox, 0x0, custom); "
+                        "defaults to the upload_service config key")
     p.set_defaults(func=cmd_upload)
 
     p = sub.add_parser("upload-last", help="Upload the most recent capture")
@@ -84,7 +87,7 @@ def cmd_capture(args) -> int:
 
 def cmd_upload(args) -> int:
     from .app import App
-    return 0 if App().upload_file(args.file) else 1
+    return 0 if App().upload_file(args.file, service=args.service) else 1
 
 
 def cmd_upload_last(args) -> int:

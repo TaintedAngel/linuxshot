@@ -45,30 +45,31 @@ class App:
         if self.config["show_notification"]:
             notify.notify_capture_success(result.filepath)
 
-        upload_url = ""
+        uploaded = None
         if self.config["auto_upload"]:
-            upload_url = self._upload_capture(result)
-            if upload_url and self.config["show_notification"]:
-                notify.notify_upload_success(upload_url)
+            uploaded = self._upload_capture(result)
+            if uploaded and self.config["show_notification"]:
+                notify.notify_upload_success(uploaded.url)
 
         if self.config["save_history"]:
             self.history.add(
                 filepath=result.filepath,
                 mode=mode.value,
                 filesize=result.filesize,
-                uploaded=bool(upload_url),
-                upload_url=upload_url,
+                uploaded=uploaded is not None,
+                upload_url=uploaded.url if uploaded else "",
+                delete_url=uploaded.delete_url if uploaded else "",
             )
         return True
 
-    def upload_file(self, filepath: str) -> str | None:
+    def upload_file(self, filepath: str, service: str | None = None) -> str | None:
         """Upload an existing file, returning its URL or None on failure."""
         if not os.path.exists(filepath):
             notify.notify_error(f"File not found: {filepath}")
             return None
 
         try:
-            result = upload(filepath)
+            result = upload(filepath, service)
         except UploadError as e:
             notify.notify_error(str(e))
             print(f"upload error: {e}", file=sys.stderr)
@@ -81,7 +82,7 @@ class App:
             else:
                 print("warning: could not copy URL to clipboard", file=sys.stderr)
 
-        self.history.update_upload(filepath, result.url)
+        self.history.update_upload(filepath, result.url, result.delete_url)
         if self.config["show_notification"]:
             notify.notify_upload_success(result.url)
         return result.url
@@ -100,15 +101,15 @@ class App:
         except FileNotFoundError:
             print(f"Screenshots directory: {path}")
 
-    def _upload_capture(self, result: CaptureResult) -> str:
+    def _upload_capture(self, result: CaptureResult):
         try:
             upload_result = upload(result.filepath)
         except UploadError as e:
             notify.notify_error(f"Upload failed: {e}")
             print(f"upload error: {e}", file=sys.stderr)
-            return ""
+            return None
 
         print(f"Uploaded: {upload_result.url}")
         if self.config["copy_url_to_clipboard"] and clipboard.copy_text(upload_result.url):
             print("URL copied to clipboard.")
-        return upload_result.url
+        return upload_result

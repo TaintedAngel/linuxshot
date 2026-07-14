@@ -18,6 +18,7 @@ class HistoryEntry:
     filesize: int = 0
     uploaded: bool = False
     upload_url: str = ""
+    delete_url: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "HistoryEntry":
@@ -28,6 +29,7 @@ class HistoryEntry:
             filesize=data.get("filesize", 0),
             uploaded=data.get("uploaded", False),
             upload_url=data.get("upload_url", ""),
+            delete_url=data.get("delete_url", ""),
         )
 
 
@@ -61,7 +63,8 @@ class History:
             print(f"warning: could not save history: {e}", file=sys.stderr)
 
     def add(self, filepath: str, mode: str, filesize: int = 0,
-            uploaded: bool = False, upload_url: str = "") -> HistoryEntry:
+            uploaded: bool = False, upload_url: str = "",
+            delete_url: str = "") -> HistoryEntry:
         entry = HistoryEntry(
             filepath=filepath,
             timestamp=datetime.now().isoformat(),
@@ -69,17 +72,19 @@ class History:
             filesize=filesize,
             uploaded=uploaded,
             upload_url=upload_url,
+            delete_url=delete_url,
         )
         self._entries.append(entry)
         self.save()
         return entry
 
-    def update_upload(self, filepath: str, url: str) -> None:
+    def update_upload(self, filepath: str, url: str, delete_url: str = "") -> None:
         """Mark the most recent entry for *filepath* as uploaded."""
         for entry in reversed(self._entries):
             if entry.filepath == filepath:
                 entry.uploaded = True
                 entry.upload_url = url
+                entry.delete_url = delete_url
                 self.save()
                 return
 

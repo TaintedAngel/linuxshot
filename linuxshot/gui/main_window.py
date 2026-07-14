@@ -212,6 +212,9 @@ class MainWindow(QMainWindow):
         add("Copy image", lambda: self._copy_image(entry), exists)
         add("Copy URL", lambda: self._copy_url(entry), bool(entry.upload_url))
         add("Upload", lambda: self.upload_path(entry.filepath), exists)
+        add("Open delete link",
+            lambda: QDesktopServices.openUrl(QUrl(entry.delete_url)),
+            bool(entry.delete_url))
         menu.addSeparator()
         add("Remove from history", lambda: self._remove_entry(entry))
         add("Delete file", lambda: self._delete_entry(entry), exists)
@@ -287,8 +290,8 @@ class MainWindow(QMainWindow):
         return page
 
     def _save_settings(self) -> None:
-        self.settings_form.apply()
-        self.statusBar().showMessage("Settings saved", 4000)
+        if self.settings_form.apply():
+            self.statusBar().showMessage("Settings saved", 4000)
 
     # -- Capture / upload actions ------------------------------------------
 

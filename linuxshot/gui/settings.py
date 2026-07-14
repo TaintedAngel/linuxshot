@@ -1,5 +1,6 @@
 """Settings form, shared between the main window and the tray dialog."""
 
+import json
 import threading
 
 from PySide6.QtGui import QKeySequence
@@ -13,8 +14,12 @@ from PySide6.QtWidgets import (
     QKeySequenceEdit,
     QLabel,
     QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -54,12 +59,22 @@ class SettingsForm(QWidget):
         form.addRow(hint)
         layout.addWidget(shortcuts)
 
-        upload = QGroupBox("Upload (ImgBB)")
+        upload = QGroupBox("Upload")
         form = QFormLayout(upload)
-        self.api_key = QLineEdit()
-        self.api_key.setPlaceholderText("Get one at api.imgbb.com")
-        self.api_key.setEchoMode(QLineEdit.EchoMode.Password)
-        form.addRow("API key:", self.api_key)
+        self.upload_service = QComboBox()
+        self.upload_service.addItems(["imgbb", "imgur", "catbox", "0x0", "custom"])
+        form.addRow("Destination:", self.upload_service)
+
+        self.service_pages = QStackedWidget()
+        self.service_pages.addWidget(self._imgbb_page())
+        self.service_pages.addWidget(self._imgur_page())
+        self.service_pages.addWidget(self._catbox_page())
+        self.service_pages.addWidget(self._0x0_page())
+        self.service_pages.addWidget(self._custom_page())
+        self.upload_service.currentIndexChanged.connect(self._switch_service_page)
+        self._switch_service_page(0)
+        form.addRow(self.service_pages)
+
         self.auto_upload = QCheckBox("Upload automatically after every capture")
         form.addRow("", self.auto_upload)
         self.copy_url = QCheckBox("Copy URL to clipboard after upload")
@@ -98,6 +113,70 @@ class SettingsForm(QWidget):
 
         layout.addStretch()
 
+    def _switch_service_page(self, index: int) -> None:
+        # Only let the visible page drive the stack's height, otherwise
+        # every service reserves room for the tallest one.
+        for i in range(self.service_pages.count()):
+            page = self.service_pages.widget(i)
+            vertical = (QSizePolicy.Policy.Preferred if i == index
+                        else QSizePolicy.Policy.Ignored)
+            page.setSizePolicy(QSizePolicy.Policy.Preferred, vertical)
+        self.service_pages.setCurrentIndex(index)
+        self.service_pages.adjustSize()
+
+    def _imgbb_page(self) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 0, 0, 0)
+        self.imgbb_api_key = QLineEdit()
+        self.imgbb_api_key.setPlaceholderText("Get one at api.imgbb.com")
+        self.imgbb_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("API key:", self.imgbb_api_key)
+        return page
+
+    def _imgur_page(self) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 0, 0, 0)
+        self.imgur_client_id = QLineEdit()
+        self.imgur_client_id.setPlaceholderText("Register at api.imgur.com/oauth2/addclient")
+        self.imgur_client_id.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("Client ID:", self.imgur_client_id)
+        return page
+
+    def _catbox_page(self) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 0, 0, 0)
+        self.catbox_userhash = QLineEdit()
+        self.catbox_userhash.setPlaceholderText("Optional; enables deleting uploads")
+        self.catbox_userhash.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("User hash:", self.catbox_userhash)
+        return page
+
+    def _0x0_page(self) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 0, 0, 0)
+        note = QLabel("<small>No account needed. Files expire after up to a year.</small>")
+        note.setWordWrap(True)
+        form.addRow(note)
+        return page
+
+    def _custom_page(self) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 0, 0, 0)
+        self.custom_uploader = QPlainTextEdit()
+        self.custom_uploader.setPlaceholderText(
+            '{\n  "request_url": "https://host/api/upload",\n'
+            '  "file_form_name": "file",\n  "headers": {"Authorization": "..."},\n'
+            '  "response_type": "json",\n  "url_key": "files.0.url"\n}'
+        )
+        self.custom_uploader.setMaximumHeight(140)
+        form.addRow("Request spec:", self.custom_uploader)
+        return page
+
     def load(self) -> None:
         cfg = self.config
         self.key_region.setKeySequence(QKeySequence.fromString(cfg["shortcut_region"] or ""))
@@ -105,7 +184,15 @@ class SettingsForm(QWidget):
             QKeySequence.fromString(cfg["shortcut_fullscreen"] or ""))
         self.key_window.setKeySequence(QKeySequence.fromString(cfg["shortcut_window"] or ""))
         self.override_spectacle.setChecked(bool(cfg["override_spectacle"]))
-        self.api_key.setText(cfg["imgbb_api_key"] or "")
+        service = cfg["upload_service"] or "imgbb"
+        index = self.upload_service.findText(service)
+        self.upload_service.setCurrentIndex(index if index >= 0 else 0)
+        self._switch_service_page(self.upload_service.currentIndex())
+        self.imgbb_api_key.setText(cfg["imgbb_api_key"] or "")
+        self.imgur_client_id.setText(cfg["imgur_client_id"] or "")
+        self.catbox_userhash.setText(cfg["catbox_userhash"] or "")
+        spec = cfg["custom_uploader"]
+        self.custom_uploader.setPlainText(json.dumps(spec, indent=2) if spec else "")
         self.auto_upload.setChecked(bool(cfg["auto_upload"]))
         self.copy_url.setChecked(bool(cfg["copy_url_to_clipboard"]))
         self.copy_image.setChecked(bool(cfg["copy_image_to_clipboard"]))
@@ -115,10 +202,20 @@ class SettingsForm(QWidget):
         self.capture_delay.setValue(int(cfg["capture_delay"]))
         self.screenshot_dir.setText(cfg["screenshot_dir"] or "")
 
-    def apply(self) -> None:
+    def apply(self) -> bool:
         """Write the form back to config and re-register KDE shortcuts if
-        they changed.
+        they changed. Returns False if a field failed validation.
         """
+        custom_text = self.custom_uploader.toPlainText().strip()
+        custom_spec = {}
+        if custom_text:
+            try:
+                custom_spec = json.loads(custom_text)
+            except json.JSONDecodeError as e:
+                QMessageBox.warning(self, "Custom uploader",
+                                    f"The request spec is not valid JSON:\n{e}")
+                return False
+
         cfg = self.config
         old_keys = (cfg["shortcut_region"], cfg["shortcut_fullscreen"],
                     cfg["shortcut_window"], cfg["override_spectacle"])
@@ -127,7 +224,11 @@ class SettingsForm(QWidget):
         cfg["shortcut_fullscreen"] = self.key_fullscreen.keySequence().toString()
         cfg["shortcut_window"] = self.key_window.keySequence().toString()
         cfg["override_spectacle"] = self.override_spectacle.isChecked()
-        cfg["imgbb_api_key"] = self.api_key.text().strip()
+        cfg["upload_service"] = self.upload_service.currentText()
+        cfg["imgbb_api_key"] = self.imgbb_api_key.text().strip()
+        cfg["imgur_client_id"] = self.imgur_client_id.text().strip()
+        cfg["catbox_userhash"] = self.catbox_userhash.text().strip()
+        cfg["custom_uploader"] = custom_spec
         cfg["auto_upload"] = self.auto_upload.isChecked()
         cfg["copy_url_to_clipboard"] = self.copy_url.isChecked()
         cfg["copy_image_to_clipboard"] = self.copy_image.isChecked()
@@ -142,6 +243,7 @@ class SettingsForm(QWidget):
                     cfg["shortcut_window"], cfg["override_spectacle"])
         if new_keys != old_keys:
             threading.Thread(target=self._apply_shortcuts, daemon=True).start()
+        return True
 
     def _on_override_toggled(self, checked: bool) -> None:
         if checked:
