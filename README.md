@@ -109,9 +109,11 @@ After each capture the editor opens (turn this off in Settings or with
 
 <img src="docs/images/editor.png" width="640" alt="Annotation editor">
 
-Arrow, line, box, ellipse, highlight, text, numbered steps, crop — and
-blur, so credentials and personal data can be pixelated before the image
-is saved or uploaded. **Done** applies your annotations, **Skip** keeps
+Arrow, line, box, ellipse, highlight, text, numbered steps, crop — plus
+**blur** (soft, cosmetic) and **pixelate** (coarse mosaic). Use pixelate
+for credentials and personal data: gaussian blur only smears information
+and blurred text has been reconstructed before, while the mosaic
+averages each block away for good. **Done** applies your annotations, **Skip** keeps
 the capture untouched, **Discard** throws it away. Ctrl+Z undoes,
 Ctrl+scroll zooms. Existing images can be annotated any time via
 `linuxshot edit` or right-click → Edit in the history.

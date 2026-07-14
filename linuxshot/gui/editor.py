@@ -53,8 +53,11 @@ DONE = "done"
 SKIP = "skip"
 DISCARD = "discard"
 
-TOOLS = ("arrow", "line", "rect", "ellipse", "highlight", "text", "step", "blur", "crop")
+TOOLS = ("arrow", "line", "rect", "ellipse", "highlight", "text", "step",
+         "blur", "pixelate", "crop")
 PIXELATE_FACTOR = 14
+BLUR_SHRINK = 8
+BLUR_PASSES = 3
 HIGHLIGHT_COLOR = QColor(255, 235, 59, 90)
 
 
@@ -158,12 +161,18 @@ class EditorWindow(QMainWindow):
         labels = {
             "arrow": "Arrow", "line": "Line", "rect": "Box", "ellipse": "Ellipse",
             "highlight": "Highlight", "text": "Text", "step": "Step",
-            "blur": "Blur", "crop": "Crop",
+            "blur": "Blur", "pixelate": "Pixelate", "crop": "Crop",
+        }
+        tips = {
+            "blur": "Soften an area (cosmetic - not for secrets)",
+            "pixelate": "Mosaic an area; use this to redact keys and passwords",
         }
         for name in TOOLS:
             action = QAction(labels[name], self)
             action.setCheckable(True)
             action.setChecked(name == self.tool)
+            if name in tips:
+                action.setToolTip(tips[name])
             action.triggered.connect(lambda _=False, n=name: self._set_tool(n))
             group.addAction(action)
             bar.addAction(action)
@@ -235,7 +244,7 @@ class EditorWindow(QMainWindow):
             path = QPainterPath(pos)
             self._active_item = QGraphicsPathItem(path)
             self._active_item.setPen(pen)
-        elif self.tool in ("rect", "blur", "crop"):
+        elif self.tool in ("rect", "blur", "pixelate", "crop"):
             self._active_item = QGraphicsRectItem(QRectF(pos, pos))
             if self.tool == "rect":
                 self._active_item.setPen(pen)
@@ -282,11 +291,13 @@ class EditorWindow(QMainWindow):
         self.update_draw(pos)
         self._active_item = None
 
-        if self.tool == "blur":
+        if self.tool in ("blur", "pixelate"):
             rect = item.rect().toRect().intersected(self.base.rect())
             self.scene.removeItem(item)
             if rect.width() > 4 and rect.height() > 4:
-                self._push_undo([self._add_pixelated(rect)])
+                factory = (self._add_blurred if self.tool == "blur"
+                           else self._add_pixelated)
+                self._push_undo([factory(rect)])
         elif self.tool == "crop":
             self._set_crop(item)
         else:
@@ -299,11 +310,13 @@ class EditorWindow(QMainWindow):
 
     def _add_pixelated(self, rect) -> QGraphicsPixmapItem:
         source = self.base.copy(rect).toImage()
+        # Smooth downscale averages each block (a real mosaic); the fast
+        # upscale keeps the blocks crisp instead of re-smoothing them.
         small = source.scaled(
             max(1, rect.width() // PIXELATE_FACTOR),
             max(1, rect.height() // PIXELATE_FACTOR),
             Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.FastTransformation,
+            Qt.TransformationMode.SmoothTransformation,
         )
         coarse = small.scaled(
             rect.width(), rect.height(),
@@ -311,6 +324,28 @@ class EditorWindow(QMainWindow):
             Qt.TransformationMode.FastTransformation,
         )
         item = QGraphicsPixmapItem(QPixmap.fromImage(coarse))
+        item.setPos(rect.topLeft())
+        self.scene.addItem(item)
+        return item
+
+    def _add_blurred(self, rect) -> QGraphicsPixmapItem:
+        # Repeated smooth down/upscaling approximates a strong gaussian
+        # blur and, unlike QGraphicsBlurEffect, renders identically
+        # everywhere.
+        image = self.base.copy(rect).toImage()
+        for _ in range(BLUR_PASSES):
+            small = image.scaled(
+                max(1, rect.width() // BLUR_SHRINK),
+                max(1, rect.height() // BLUR_SHRINK),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            image = small.scaled(
+                rect.width(), rect.height(),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        item = QGraphicsPixmapItem(QPixmap.fromImage(image))
         item.setPos(rect.topLeft())
         self.scene.addItem(item)
         return item
