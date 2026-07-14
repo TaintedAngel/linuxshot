@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # The GUI stack (PySide6, PyGObject, dbus-python) needs system
+      # libraries and a display; the test suite covers the core modules,
+      # which only need requests.
+      - run: pip install requests pytest ruff
+      - run: ruff check linuxshot tests
+      - run: pytest -v
