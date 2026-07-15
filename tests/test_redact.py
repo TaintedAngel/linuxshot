@@ -73,6 +73,69 @@ def test_scan_tsv_skips_non_word_rows():
     assert len(_scan_tsv(tsv)) == 1
 
 
+def test_scan_tsv_merges_split_email():
+    # tesseract split "admin@mycompany.com" into two fragments with a
+    # 2px gap; they must be rejoined before classification
+    tsv = make_tsv([
+        "5\t1\t1\t1\t1\t1\t40\t80\t180\t20\t90.0\tadmin@mycompany",
+        "5\t1\t1\t1\t1\t2\t222\t80\t60\t20\t90.0\t.com",
+    ])
+    regions = _scan_tsv(tsv)
+    assert len(regions) == 1
+    assert regions[0].label == "email"
+    assert regions[0].x == 40
+    assert regions[0].width == 242  # spans both fragments
+
+
+def test_scan_tsv_keeps_real_spaces_separate():
+    tsv = make_tsv([
+        "5\t1\t1\t1\t1\t1\t40\t80\t70\t20\t90.0\tcontact",
+        "5\t1\t1\t1\t1\t2\t125\t80\t150\t20\t90.0\tadmin@example.com",
+    ])
+    regions = _scan_tsv(tsv)
+    assert len(regions) == 1
+    assert regions[0].text == "admin@example.com"
+
+
+def test_scan_tsv_flags_value_after_credential_keyword():
+    tsv = make_tsv([
+        "5\t1\t1\t1\t1\t1\t40\t80\t100\t20\t90.0\tpassword:",
+        "5\t1\t1\t1\t1\t2\t160\t80\t90\t20\t90.0\thunter2",
+    ])
+    regions = _scan_tsv(tsv)
+    assert len(regions) == 1
+    assert regions[0].text == "hunter2"
+    assert regions[0].label == "credential"
+
+
+def test_find_regions_unions_both_psm_passes(monkeypatch):
+    monkeypatch.setattr(redact_mod, "has_command", lambda cmd: True)
+    tsv = make_tsv([
+        "5\t1\t1\t1\t1\t1\t40\t80\t200\t20\t95.0\tuser@example.com",
+    ])
+    seen = []
+
+    def fake_run(cmd):
+        seen.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout=tsv, stderr="")
+
+    monkeypatch.setattr(redact_mod, "run_cmd", fake_run)
+    regions = find_sensitive_regions("/tmp/x.png")
+    # both passes found the same box; dedupe keeps one
+    assert len(regions) == 1
+    assert [c[c.index("--psm") + 1] for c in seen] == ["3", "6"]
+
+
+def test_find_regions_raises_when_all_passes_fail(monkeypatch):
+    monkeypatch.setattr(redact_mod, "has_command", lambda cmd: True)
+    monkeypatch.setattr(
+        redact_mod, "run_cmd",
+        lambda cmd: subprocess.CompletedProcess(
+            cmd, 1, stdout="", stderr="Error: no tessdata\n"))
+    with pytest.raises(OcrError, match="no tessdata"):
+        find_sensitive_regions("/tmp/x.png")
+
+
 def test_find_regions_requires_tesseract(monkeypatch):
     monkeypatch.setattr(redact_mod, "has_command", lambda cmd: False)
     with pytest.raises(OcrError, match="tesseract"):
@@ -89,4 +152,4 @@ def test_find_regions_passes_language(monkeypatch):
 
     monkeypatch.setattr(redact_mod, "run_cmd", fake_run)
     find_sensitive_regions("/tmp/x.png", language="eng")
-    assert "-l" in seen["cmd"] and "tsv" in seen["cmd"]
+    assert "-l" in seen["cmd"] and "tsv" in seen["cmd"] and "--psm" in seen["cmd"]
