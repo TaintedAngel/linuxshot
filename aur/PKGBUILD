@@ -21,6 +21,8 @@ optdepends=(
     'wl-clipboard: Wayland clipboard support'
     'tesseract: OCR text extraction (linuxshot ocr)'
     'hyprpicker: color picker on wlroots compositors'
+    'ffmpeg: recording conversion and X11 recording'
+    'wf-recorder: screen recording on wlroots compositors'
     'maim: X11 screenshot capture'
     'xdotool: X11 window detection'
     'xclip: X11 clipboard support'

@@ -40,6 +40,11 @@ from .pin import PinWindow
 from .settings import SettingsForm
 
 THUMBNAIL_SIZE = QSize(64, 40)
+VIDEO_SUFFIXES = (".mp4", ".webm", ".gif", ".mkv")
+
+
+def is_video(filepath: str) -> bool:
+    return filepath.lower().endswith(VIDEO_SUFFIXES)
 
 
 class MainWindow(QMainWindow):
@@ -109,6 +114,10 @@ class MainWindow(QMainWindow):
                lambda: self.start_capture(CaptureMode.FULLSCREEN))
         button("Active window", theme_icon("window", "preferences-system-windows"),
                lambda: self.start_capture(CaptureMode.WINDOW))
+        button("Record screen", theme_icon("media-record"),
+               lambda: self.toggle_record("screen"))
+        button("Record region", theme_icon("media-record"),
+               lambda: self.toggle_record("region"))
 
         header("Upload")
         button("Upload file...", theme_icon("document-send"), self.upload_file_dialog)
@@ -211,6 +220,12 @@ class MainWindow(QMainWindow):
             self.preview_name.clear()
             self.preview_url.clear()
             return
+        if is_video(entry.filepath):
+            self.preview_image.setPixmap(QPixmap())
+            self.preview_image.setText("Video - double-click to play")
+            self.preview_name.setText(os.path.basename(entry.filepath))
+            self.preview_url.setText("")
+            return
         pixmap = QPixmap(entry.filepath)
         if pixmap.isNull():
             self.preview_image.setText("File no longer exists")
@@ -236,7 +251,9 @@ class MainWindow(QMainWindow):
                 entry.upload_url,
             ])
             item.setData(0, Qt.ItemDataRole.UserRole, entry)
-            if os.path.isfile(entry.filepath):
+            if is_video(entry.filepath):
+                item.setIcon(0, theme_icon("video-x-generic"))
+            elif os.path.isfile(entry.filepath):
                 # QIcon loads the pixmap lazily, on first paint
                 item.setIcon(0, QIcon(entry.filepath))
             else:
@@ -261,6 +278,7 @@ class MainWindow(QMainWindow):
         if not entry:
             return
         exists = os.path.isfile(entry.filepath)
+        image = exists and not is_video(entry.filepath)
 
         menu = QMenu(self)
 
@@ -270,12 +288,12 @@ class MainWindow(QMainWindow):
             action.setEnabled(enabled)
             return action
 
-        add("Open image", lambda: self._open_entry(), exists)
-        add("Edit", lambda: self._edit_entry(entry), exists)
+        add("Open", lambda: self._open_entry(), exists)
+        add("Edit", lambda: self._edit_entry(entry), image)
         add("Open containing folder", lambda: self._open_folder(entry))
         menu.addSeparator()
-        add("Pin to screen", lambda: self.pin_file(entry.filepath), exists)
-        add("Copy image", lambda: self._copy_image(entry), exists)
+        add("Pin to screen", lambda: self.pin_file(entry.filepath), image)
+        add("Copy image", lambda: self._copy_image(entry), image)
         add("Copy URL", lambda: self._copy_url(entry), bool(entry.upload_url))
         add("Upload", lambda: self.upload_path(entry.filepath), exists)
         add("Open delete link",
@@ -407,6 +425,29 @@ class MainWindow(QMainWindow):
             self.task_done.emit(f"Uploaded: {url}" if url else "Upload failed", False)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def toggle_record(self, mode: str) -> None:
+        from .. import recording
+
+        starting = recording.current() is None
+        if starting:
+            self.hide()
+        else:
+            self.statusBar().showMessage("Finalizing recording...")
+
+        def worker() -> None:
+            path = self.app.toggle_recording(mode)
+            if path:
+                self.task_done.emit(f"Recording saved: {os.path.basename(path)}", True)
+            elif starting:
+                self.task_done.emit(
+                    "Recording... use the tray or this button again to stop", False)
+            else:
+                self.task_done.emit("Recording failed", True)
+
+        QTimer.singleShot(
+            300 if starting else 0,
+            lambda: threading.Thread(target=worker, daemon=True).start())
 
     def run_ocr_tool(self) -> None:
         self.hide()

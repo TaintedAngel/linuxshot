@@ -40,6 +40,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file", help="Path to the image to edit")
     p.set_defaults(func=cmd_edit)
 
+    p = sub.add_parser(
+        "record",
+        help="Start or stop a screen recording (the same command toggles)")
+    p.add_argument("mode", nargs="?", default="screen",
+                   choices=["region", "screen", "fullscreen", "window"],
+                   help="What to record when starting (default: screen)")
+    p.add_argument("--stop", action="store_true",
+                   help="Only stop; never start a new recording")
+    p.set_defaults(func=cmd_record)
+
     p = sub.add_parser("ocr", help="Capture a region and copy its text (tesseract)")
     p.set_defaults(func=cmd_ocr)
 
@@ -123,6 +133,18 @@ def cmd_edit(args) -> int:
     outcome = run_editor_standalone(args.file)
     if outcome == "done":
         print(f"Saved: {args.file}")
+    return 0
+
+
+def cmd_record(args) -> int:
+    from . import recording
+    from .app import App
+
+    if args.stop and recording.current() is None:
+        print("No recording is running.", file=sys.stderr)
+        return 1
+    mode = "screen" if args.mode == "fullscreen" else args.mode
+    App().toggle_recording(mode)
     return 0
 
 
@@ -335,6 +357,11 @@ def cmd_check(args) -> int:
     print("\nOptional tools:")
     _print_dep("tesseract", deps["tesseract"], "OCR (linuxshot ocr)")
     _print_dep("hyprpicker", deps["hyprpicker"], "color picker fallback on wlroots")
+    _print_dep("ffmpeg", deps["ffmpeg"], "recording conversion, X11 recording")
+    _print_dep("wf-recorder", deps["wf-recorder"], "recording on wlroots compositors")
+
+    from .recording import detect_backend
+    print(f"\nRecording backend: {detect_backend()}")
 
     print("\nPython packages:")
     for name, module in (("requests", "requests"), ("PySide6", "PySide6"),

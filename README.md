@@ -21,6 +21,7 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 - **Annotation editor** after every capture: arrows, boxes, text, highlights, numbered steps, crop, and **blur** for redacting secrets before anything leaves your machine
 - Upload to **ImgBB, Imgur, catbox.moe, 0x0.st**, or any self-hosted service via a custom HTTP uploader
 - Delete links are kept in history, so an upload is never irreversible
+- **Screen recording** to MP4, webm, or GIF — Spectacle backend on KDE, wf-recorder on wlroots, ffmpeg on X11; one command toggles start/stop
 - **OCR**: capture a region, get its text on the clipboard (tesseract)
 - **Color picker** (desktop portal, hyprpicker fallback) and **pin to screen** for floating reference images
 - History with thumbnails, live preview pane, and per-entry actions
@@ -92,6 +93,7 @@ linuxshot region          Capture a selected region
 linuxshot fullscreen      Capture the entire screen
 linuxshot window          Capture the active window
 linuxshot edit <file>     Annotate an image in the editor
+linuxshot record [mode]   Start/stop a screen recording (region|screen|window)
 linuxshot ocr             Capture a region and copy its text
 linuxshot pick-color      Pick a pixel color from the screen
 linuxshot pin [file]      Pin an image to the screen, always on top
@@ -262,6 +264,8 @@ For services that answer with a plain-text URL, use `"response_type": "text"`.
 - `auto_upload` - upload after every capture (default: false)
 - `open_editor_after_capture` - annotate before the after-capture steps run (default: true)
 - `ocr_language` - tesseract language for `linuxshot ocr` (default: tesseract's own)
+- `recording_format` - `mp4`, `webm`, or `gif` (default: mp4; converted with ffmpeg on stop)
+- `gif_fps` - frame rate for GIF conversion (default: 12)
 - `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)
 - `image_format` - `png`, `jpg`, or `webp` (default: png)
 - `copy_image_to_clipboard` - copy image to clipboard (default: true)

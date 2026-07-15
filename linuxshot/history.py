@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -101,6 +102,14 @@ class History:
         return entries[:limit] if limit > 0 else entries
 
     def clear(self) -> None:
+        """Empty the history, leaving a timestamped backup next to it so
+        a stray click can't wipe months of upload links."""
+        if self._entries and os.path.exists(self._path):
+            backup = f"{self._path}.bak-{datetime.now():%Y%m%d-%H%M%S}"
+            try:
+                shutil.copy2(self._path, backup)
+            except OSError:
+                pass
         self._entries = []
         self.save()
 

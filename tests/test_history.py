@@ -59,6 +59,20 @@ def test_clear():
     assert History().count == 0
 
 
+def test_clear_leaves_backup():
+    import glob
+    import json
+
+    history = History()
+    history.add("/tmp/a.png", "region")
+    history.clear()
+
+    backups = glob.glob(history.path + ".bak-*")
+    assert len(backups) == 1
+    with open(backups[0]) as f:
+        assert json.load(f)[0]["filepath"] == "/tmp/a.png"
+
+
 def test_trims_to_max_entries():
     config = Config.get()
     config["max_history_entries"] = 3

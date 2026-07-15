@@ -39,6 +39,10 @@ DEFAULTS: dict[str, Any] = {
     # Tools
     "ocr_language": "",  # tesseract -l value; empty uses its default
 
+    # Recording
+    "recording_format": "mp4",  # mp4, webm, gif
+    "gif_fps": 12,
+
     # Capture
     "capture_delay": 0,
     "include_cursor": False,

@@ -67,6 +67,18 @@ class Tray(QObject):
             action.triggered.connect(lambda _=False, m=mode: self.capture(m))
 
         menu.addSeparator()
+        record_region = menu.addAction("Record Region")
+        record_region.triggered.connect(lambda: self.toggle_record("region"))
+        record_screen = menu.addAction("Record Screen")
+        record_screen.triggered.connect(lambda: self.toggle_record("screen"))
+
+        self._stop_record = menu.addAction("Stop Recording")
+        self._stop_record.triggered.connect(lambda: self.toggle_record("screen"))
+        self._stop_record.setVisible(False)
+        self._record_starts = (record_region, record_screen)
+        menu.aboutToShow.connect(self._refresh_record_actions)
+
+        menu.addSeparator()
         ocr = menu.addAction("OCR Region")
         ocr.triggered.connect(
             lambda: threading.Thread(target=self.app.run_ocr, daemon=True).start()
@@ -112,6 +124,23 @@ class Tray(QObject):
             target=self.app.run_capture, args=(mode,),
             kwargs={"editor": editor}, daemon=True,
         ).start()
+
+    def toggle_record(self, mode: str) -> None:
+        threading.Thread(
+            target=self.app.toggle_recording, args=(mode,), daemon=True
+        ).start()
+
+    def _refresh_record_actions(self) -> None:
+        from .. import recording
+
+        state = recording.current()
+        recording_now = state is not None
+        for action in self._record_starts:
+            action.setVisible(not recording_now)
+        self._stop_record.setVisible(recording_now)
+        if recording_now:
+            minutes, seconds = divmod(recording.elapsed_seconds(state), 60)
+            self._stop_record.setText(f"Stop Recording ({minutes}:{seconds:02d})")
 
     def _pick_color(self) -> None:
         # Runs in a subprocess: the portal picker wants its own GLib

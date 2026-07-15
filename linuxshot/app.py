@@ -103,6 +103,38 @@ class App:
             notify.notify_upload_success(result.url)
         return result.url
 
+    def toggle_recording(self, mode: str = "screen") -> str | None:
+        """Start a recording, or stop and finalize the running one.
+        Returns the saved file path when a recording was stopped.
+        """
+        from . import recording
+
+        if recording.current() is None:
+            try:
+                recording.start(mode)
+            except recording.RecordingError as e:
+                notify.notify_error(str(e))
+                print(f"error: {e}", file=sys.stderr)
+                return None
+            notify.send("Recording started",
+                        "Run the record action again to stop.")
+            print("Recording started.")
+            return None
+
+        try:
+            path = recording.stop()
+        except recording.RecordingError as e:
+            notify.notify_error(str(e))
+            print(f"error: {e}", file=sys.stderr)
+            return None
+
+        size = os.path.getsize(path) if os.path.exists(path) else 0
+        if self.config["save_history"]:
+            self.history.add(filepath=path, mode="recording", filesize=size)
+        notify.send("Recording saved", path, icon="video-x-generic")
+        print(f"Recording saved: {path}")
+        return path
+
     def run_ocr(self) -> str | None:
         """Capture a region and put the recognized text on the clipboard.
         Returns the text, or None if cancelled / nothing found.
