@@ -1,0 +1,23 @@
+[Desktop Entry]
+Name=LinuxShot
+Comment=ShareX-inspired screenshot and upload tool
+Exec=linuxshot tray
+Icon=io.github.taintedangel.linuxshot
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=screenshot;capture;upload;annotate;screen;
+StartupNotify=false
+Actions=CaptureRegion;CaptureFullscreen;CaptureWindow;
+
+[Desktop Action CaptureRegion]
+Name=Capture Region
+Exec=linuxshot region
+
+[Desktop Action CaptureFullscreen]
+Name=Capture Fullscreen
+Exec=linuxshot fullscreen
+
+[Desktop Action CaptureWindow]
+Name=Capture Active Window
+Exec=linuxshot window

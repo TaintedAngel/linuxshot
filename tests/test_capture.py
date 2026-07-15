@@ -47,9 +47,21 @@ def test_detect_backend_grim_only_when_screencopy_works(monkeypatch):
     assert detect_wayland_backend() == "none"
 
 
+def test_detect_backend_portal_fallback(monkeypatch):
+    import linuxshot.portal as portal_mod
+
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "somewm")
+    monkeypatch.setattr(capture_mod, "has_command", lambda cmd: False)
+    monkeypatch.setattr(portal_mod, "available", lambda: True)
+    assert detect_wayland_backend() == "portal"
+
+
 def test_detect_backend_none_without_tools(monkeypatch):
+    import linuxshot.portal as portal_mod
+
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", "")
     monkeypatch.setattr(capture_mod, "has_command", lambda cmd: False)
+    monkeypatch.setattr(portal_mod, "available", lambda: False)
     assert detect_wayland_backend() == "none"
 
 

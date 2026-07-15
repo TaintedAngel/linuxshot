@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.taintedangel.linuxshot</id>
+  <name>LinuxShot</name>
+  <summary>ShareX-style screenshots, annotation, and uploads</summary>
+  <developer id="io.github.taintedangel">
+    <name>TaintedAngel</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Capture a region, window, or the whole screen, annotate it - arrows,
+      text, highlights, and pixelation for redacting secrets - and upload it
+      to ImgBB, Imgur, catbox.moe, 0x0.st, or your own server, with the link
+      landing on your clipboard.
+    </p>
+    <ul>
+      <li>Annotation editor after every capture, with blur and mosaic redaction</li>
+      <li>Screen recording to MP4, webm, or GIF</li>
+      <li>OCR a region straight to the clipboard</li>
+      <li>Color picker and pin-to-screen reference windows</li>
+      <li>Searchable capture history with thumbnails and delete links</li>
+      <li>System tray, global shortcuts on KDE, and a full CLI</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.taintedangel.linuxshot.desktop</launchable>
+
+  <url type="homepage">https://github.com/TaintedAngel/linuxshot</url>
+  <url type="bugtracker">https://github.com/TaintedAngel/linuxshot/issues</url>
+  <url type="vcs-browser">https://github.com/TaintedAngel/linuxshot</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/TaintedAngel/linuxshot/main/docs/images/main-window.png</image>
+      <caption>Main window with capture actions and history</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/TaintedAngel/linuxshot/main/docs/images/editor.png</image>
+      <caption>Annotation editor with redaction tools</caption>
+    </screenshot>
+  </screenshots>
+
+  <categories>
+    <category>Utility</category>
+    <category>Graphics</category>
+  </categories>
+
+  <keywords>
+    <keyword>screenshot</keyword>
+    <keyword>screen capture</keyword>
+    <keyword>annotation</keyword>
+    <keyword>upload</keyword>
+    <keyword>sharex</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="2.1.0" date="2026-07-14">
+      <description>
+        <p>
+          Annotation editor with redaction, multiple upload destinations,
+          screen recording, OCR, color picker, pin-to-screen, and a
+          portal-based capture backend for any Wayland compositor.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0" date="2026-07-14"/>
+  </releases>
+</component>

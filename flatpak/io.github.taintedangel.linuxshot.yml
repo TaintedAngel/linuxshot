@@ -1,0 +1,114 @@
+# Flatpak manifest for LinuxShot.
+#
+# Inside the sandbox there are no host screenshot tools, so capture goes
+# through xdg-desktop-portal (linuxshot/portal.py). wl-clipboard is
+# bundled because Wayland clipboard access is a protocol, not a portal.
+# Build locally with:
+#   flatpak-builder --user --install --force-clean build \
+#       flatpak/io.github.taintedangel.linuxshot.yml
+app-id: io.github.taintedangel.linuxshot
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
+base: io.qt.PySide.BaseApp
+base-version: '6.8'
+command: linuxshot
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --share=network                              # uploads
+  - --device=dri
+  - --filesystem=xdg-pictures                    # screenshot folder
+  - --talk-name=org.kde.StatusNotifierWatcher    # tray icon
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.kglobalaccel             # KDE global shortcuts
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - '*.la'
+
+modules:
+  - name: python3-requests
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/r/requests/requests-2.32.3.tar.gz
+        sha256: 55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760
+    # requests' own deps
+    modules:
+      - name: python3-charset-normalizer
+        buildsystem: simple
+        build-commands:
+          - pip3 install --prefix=/app --no-deps --no-build-isolation .
+        sources:
+          - type: archive
+            url: https://files.pythonhosted.org/packages/source/c/charset_normalizer/charset_normalizer-3.4.0.tar.gz
+            sha256: 223217c3d4f82c3ac5e29032b3f1c2eb0fb591b72161f86d93f5719079dae93e
+      - name: python3-idna
+        buildsystem: simple
+        build-commands:
+          - pip3 install --prefix=/app --no-deps --no-build-isolation .
+        sources:
+          - type: archive
+            url: https://files.pythonhosted.org/packages/source/i/idna/idna-3.10.tar.gz
+            sha256: 12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9
+      - name: python3-urllib3
+        buildsystem: simple
+        build-commands:
+          - pip3 install --prefix=/app --no-deps --no-build-isolation .
+        sources:
+          - type: archive
+            url: https://files.pythonhosted.org/packages/source/u/urllib3/urllib3-2.2.3.tar.gz
+            sha256: e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9
+      - name: python3-certifi
+        buildsystem: simple
+        build-commands:
+          - pip3 install --prefix=/app --no-deps --no-build-isolation .
+        sources:
+          - type: archive
+            url: https://files.pythonhosted.org/packages/source/c/certifi/certifi-2024.8.30.tar.gz
+            sha256: bec941d2aa8195e248a60b31ff9f0558284cf01a52591ceda73ea9afffd69fd9
+
+  - name: python3-dbus
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/d/dbus-python/dbus-python-1.3.2.tar.gz
+        sha256: ad67819308618b5069537be237f8e68ca1c7fcc95ee4a121fe6845b1418248f8
+
+  - name: python3-pygobject
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/p/pygobject/pygobject-3.50.0.tar.gz
+        sha256: 8d836e75b5a881d457ee1622cae4b9adb99de70ff7a3018a205cb4d0cb35a9a7
+
+  - name: wl-clipboard
+    buildsystem: meson
+    sources:
+      - type: archive
+        url: https://github.com/bugaevc/wl-clipboard/archive/refs/tags/v2.2.1.tar.gz
+        sha256: 6eb8081207fb1b6c5fc242bda4f0289d24bc1b1e5da3d8a5c6b1eae298bd0f36
+
+  - name: linuxshot
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+      - install -Dm644 resources/icons/linuxshot.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.taintedangel.linuxshot.svg
+      - install -Dm644 resources/io.github.taintedangel.linuxshot.desktop
+        /app/share/applications/io.github.taintedangel.linuxshot.desktop
+      - install -Dm644 resources/io.github.taintedangel.linuxshot.metainfo.xml
+        /app/share/metainfo/io.github.taintedangel.linuxshot.metainfo.xml
+    sources:
+      - type: dir
+        path: ..

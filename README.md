@@ -278,6 +278,7 @@ For services that answer with a plain-text URL, use `"response_type": "text"`.
 
 ### Wayland
 - `spectacle` (KDE), `gnome-screenshot` (GNOME), or `grim` + `slurp` (wlroots)
+- Any other compositor: capture falls back to **xdg-desktop-portal** automatically
 - `wl-clipboard` - clipboard (wl-copy / wl-paste)
 
 ### X11

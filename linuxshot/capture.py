@@ -61,6 +61,13 @@ def detect_wayland_backend() -> str:
         return "spectacle"
     if has_command("gnome-screenshot"):
         return "gnome-screenshot"
+
+    # Last resort: the desktop portal. Works on any compositor with a
+    # portal implementation (and is the only option inside Flatpak),
+    # but shows the desktop's own screenshot dialog.
+    from . import portal
+    if portal.available():
+        return "portal"
     return "none"
 
 
@@ -115,11 +122,24 @@ class Capture:
             return self._gnome_capture(mode, output)
         if backend == "grim":
             return self._grim_capture(mode, output)
+        if backend == "portal":
+            return self._portal_capture(mode, output)
         raise CaptureError(
             "No supported screenshot tool found.\n"
             "Install one of: spectacle (KDE), gnome-screenshot (GNOME), "
             "or grim+slurp (wlroots compositors like Hyprland/Sway)."
         )
+
+    # -- xdg-desktop-portal (any compositor, Flatpak) ------------------------
+
+    @staticmethod
+    def _portal_capture(mode: CaptureMode, output: str) -> bool:
+        from . import portal
+
+        # The portal's dialog handles area choice itself; a fullscreen
+        # request can at least skip the interaction.
+        interactive = mode != CaptureMode.FULLSCREEN
+        return portal.take_screenshot(output, interactive=interactive)
 
     # -- Spectacle (KDE) -------------------------------------------------
 
