@@ -14,3 +14,6 @@ venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+
+# maintainer-local notes
+FLATHUB-NOTES.md

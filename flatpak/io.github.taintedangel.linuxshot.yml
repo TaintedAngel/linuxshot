@@ -1,5 +1,9 @@
 # Flatpak manifest for LinuxShot.
 #
+# This manifest is provided for LOCAL builds. Publishing LinuxShot on
+# Flathub (or any app store) is handled by the maintainer only - please
+# do not submit this app on the project's behalf.
+#
 # Inside the sandbox there are no host screenshot tools, so capture goes
 # through xdg-desktop-portal (linuxshot/portal.py). wl-clipboard is
 # bundled because Wayland clipboard access is a protocol, not a portal.

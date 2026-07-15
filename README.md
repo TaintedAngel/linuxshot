@@ -350,7 +350,12 @@ GPL-3.0, same as ShareX.
 
 ## Contributing
 
-Pull requests welcome! Ideas:
+Pull requests welcome! One boundary: **publishing LinuxShot to app
+stores (Flathub, AUR, etc.) is handled by the maintainer** — the
+bundled Flatpak manifest is for local builds only. Please don't submit
+this app anywhere on the project's behalf.
+
+Ideas:
 
 - Image annotation overlay
 - OCR via Tesseract
