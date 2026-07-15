@@ -19,6 +19,7 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 
 - Region, fullscreen, and active window capture (PrtSc / Ctrl+PrtSc / Alt+PrtSc)
 - **Annotation editor** after every capture: arrows, boxes, text, highlights, numbered steps, crop, and **blur** for redacting secrets before anything leaves your machine
+- **Automatic secret detection**: one click finds API keys, emails, tokens, and credentials in the capture via OCR and pixelates them all
 - Upload to **ImgBB, Imgur, catbox.moe, 0x0.st**, or any self-hosted service via a custom HTTP uploader
 - Delete links are kept in history, so an upload is never irreversible
 - **Screen recording** to MP4, webm, or GIF — Spectacle backend on KDE, wf-recorder on wlroots, ffmpeg on X11; one command toggles start/stop
@@ -121,7 +122,17 @@ Arrow, line, box, ellipse, highlight, text, numbered steps, crop — plus
 **blur** (soft, cosmetic) and **pixelate** (coarse mosaic). Use pixelate
 for credentials and personal data: gaussian blur only smears information
 and blurred text has been reconstructed before, while the mosaic
-averages each block away for good. **Done** applies your annotations, **Skip** keeps
+averages each block away for good.
+
+**Detect secrets** does the redaction for you: it OCRs the capture and
+pixelates anything that looks like an API key, email address, token,
+`password=` pair, or IP address, as a single undoable step. Requires
+tesseract.
+
+<img src="docs/images/secret-detection.png" width="640" alt="Automatic secret detection">
+
+Before / after one click — the Stripe key, email, server address, and
+GitHub token are gone; ordinary text is untouched. **Done** applies your annotations, **Skip** keeps
 the capture untouched, **Discard** throws it away. Ctrl+Z undoes,
 Ctrl+scroll zooms. Existing images can be annotated any time via
 `linuxshot edit` or right-click → Edit in the history.

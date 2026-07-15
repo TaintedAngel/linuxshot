@@ -18,6 +18,7 @@
     </p>
     <ul>
       <li>Annotation editor after every capture, with blur and mosaic redaction</li>
+      <li>Automatic secret detection: OCR finds API keys, emails, and tokens and pixelates them in one click</li>
       <li>Screen recording to MP4, webm, or GIF</li>
       <li>OCR a region straight to the clipboard</li>
       <li>Color picker and pin-to-screen reference windows</li>

@@ -193,6 +193,12 @@ class EditorWindow(QMainWindow):
         width_spin.valueChanged.connect(lambda v: setattr(self, "pen_width", v))
         bar.addWidget(width_spin)
 
+        detect = QAction("Detect secrets", self)
+        detect.setToolTip(
+            "Find emails, API keys, and tokens with OCR and pixelate them")
+        detect.triggered.connect(self.detect_secrets)
+        bar.addAction(detect)
+
         undo = QAction("Undo", self)
         undo.setShortcut(QKeySequence.StandardKey.Undo)
         undo.triggered.connect(self.undo)
@@ -389,6 +395,41 @@ class EditorWindow(QMainWindow):
         self.scene.addItem(circle)
         self.step_counter += 1
         self._push_undo([circle])
+
+    def detect_secrets(self) -> None:
+        """Pixelate everything that OCR flags as a likely secret, as a
+        single undoable step."""
+        from ..config import Config
+        from ..ocr import OcrError
+        from ..redact import find_sensitive_regions
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            regions = find_sensitive_regions(
+                self.filepath, Config.get()["ocr_language"])
+        except OcrError as e:
+            self.statusBar().showMessage(str(e).splitlines()[0], 8000)
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        pad = 4
+        items = []
+        for region in regions:
+            rect = QRectF(region.x - pad, region.y - pad,
+                          region.width + 2 * pad,
+                          region.height + 2 * pad).toRect()
+            rect = rect.intersected(self.base.rect())
+            if rect.width() > 4 and rect.height() > 4:
+                items.append(self._add_pixelated(rect))
+        if items:
+            self._push_undo(items)
+            kinds = ", ".join(sorted({r.label for r in regions}))
+            self.statusBar().showMessage(
+                f"Pixelated {len(items)} suspected secrets ({kinds}) - "
+                "Ctrl+Z reverts them all", 8000)
+        else:
+            self.statusBar().showMessage("No secrets detected", 5000)
 
     def _push_undo(self, items: list) -> None:
         self._undo_stack.append(items)
