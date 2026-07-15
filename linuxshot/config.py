@@ -36,6 +36,9 @@ DEFAULTS: dict[str, Any] = {
     "catbox_userhash": "",  # optional; enables deletion on catbox
     "custom_uploader": {},  # see linuxshot.upload.CustomUploader
 
+    # Tools
+    "ocr_language": "",  # tesseract -l value; empty uses its default
+
     # Capture
     "capture_delay": 0,
     "include_cursor": False,

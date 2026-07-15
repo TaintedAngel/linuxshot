@@ -77,5 +77,6 @@ def check_dependencies() -> dict[str, bool]:
         "spectacle", "gnome-screenshot", "grim", "slurp", "wl-copy", "wl-paste",
         "maim", "xdotool", "xclip",
         "notify-send",
+        "tesseract", "hyprpicker",
     )
     return {tool: has_command(tool) for tool in tools}

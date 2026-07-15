@@ -3,11 +3,12 @@ history filling the rest.
 """
 
 import os
+import subprocess
 import sys
 import threading
 
 from PySide6.QtCore import QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QIcon
+from PySide6.QtGui import QAction, QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -34,6 +36,7 @@ from ..config import Config
 from ..history import History, HistoryEntry
 from .editor import EditorBridge, open_editor
 from .icons import app_icon, theme_icon
+from .pin import PinWindow
 from .settings import SettingsForm
 
 THUMBNAIL_SIZE = QSize(64, 40)
@@ -53,6 +56,7 @@ class MainWindow(QMainWindow):
         self.config = Config.get()
         self.history = History()
         self.editor_bridge = EditorBridge()
+        self._pins: list[PinWindow] = []
 
         self.task_done.connect(self._on_task_done)
         self._build()
@@ -110,6 +114,12 @@ class MainWindow(QMainWindow):
         button("Upload file...", theme_icon("document-send"), self.upload_file_dialog)
         button("Upload last capture", theme_icon("go-up"), self.upload_last)
 
+        header("Tools")
+        button("OCR - copy text", theme_icon("scanner", "edit-find"), self.run_ocr_tool)
+        button("Pick color", theme_icon("color-picker", "colormanagement"),
+               self.pick_color_tool)
+        button("Pin last capture", theme_icon("window-pin", "pin"), self.pin_last)
+
         header("Application")
         button("History", theme_icon("view-history", "document-open-recent"),
                lambda: self.pages.setCurrentIndex(0))
@@ -159,8 +169,60 @@ class MainWindow(QMainWindow):
         self.tree.setColumnWidth(1, 150)
         self.tree.setColumnWidth(2, 90)
         self.tree.setColumnWidth(3, 70)
-        layout.addWidget(self.tree)
+        self.tree.currentItemChanged.connect(self._update_preview)
+
+        splitter = QSplitter()
+        splitter.addWidget(self.tree)
+        splitter.addWidget(self._build_preview_pane())
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
+        layout.addWidget(splitter)
         return page
+
+    def _build_preview_pane(self) -> QWidget:
+        pane = QWidget()
+        layout = QVBoxLayout(pane)
+        layout.setContentsMargins(8, 0, 0, 0)
+
+        self.preview_image = QLabel("Select a capture")
+        self.preview_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_image.setMinimumWidth(220)
+        layout.addWidget(self.preview_image, 1)
+
+        self.preview_name = QLabel("")
+        self.preview_name.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.preview_name.setWordWrap(True)
+        layout.addWidget(self.preview_name)
+
+        self.preview_url = QLabel("")
+        self.preview_url.setOpenExternalLinks(True)
+        self.preview_url.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.preview_url.setWordWrap(True)
+        layout.addWidget(self.preview_url)
+        return pane
+
+    def _update_preview(self, item, _previous=None) -> None:
+        entry = item.data(0, Qt.ItemDataRole.UserRole) if item else None
+        if entry is None:
+            self.preview_image.setText("Select a capture")
+            self.preview_image.setPixmap(QPixmap())
+            self.preview_name.clear()
+            self.preview_url.clear()
+            return
+        pixmap = QPixmap(entry.filepath)
+        if pixmap.isNull():
+            self.preview_image.setText("File no longer exists")
+        else:
+            width = max(220, self.preview_image.width() - 8)
+            self.preview_image.setPixmap(pixmap.scaledToWidth(
+                min(width, pixmap.width()),
+                Qt.TransformationMode.SmoothTransformation))
+        self.preview_name.setText(os.path.basename(entry.filepath))
+        self.preview_url.setText(
+            f'<a href="{entry.upload_url}">{entry.upload_url}</a>'
+            if entry.upload_url else "")
 
     def refresh_history(self) -> None:
         self.history.load()
@@ -212,6 +274,7 @@ class MainWindow(QMainWindow):
         add("Edit", lambda: self._edit_entry(entry), exists)
         add("Open containing folder", lambda: self._open_folder(entry))
         menu.addSeparator()
+        add("Pin to screen", lambda: self.pin_file(entry.filepath), exists)
         add("Copy image", lambda: self._copy_image(entry), exists)
         add("Copy URL", lambda: self._copy_url(entry), bool(entry.upload_url))
         add("Upload", lambda: self.upload_path(entry.filepath), exists)
@@ -344,6 +407,46 @@ class MainWindow(QMainWindow):
             self.task_done.emit(f"Uploaded: {url}" if url else "Upload failed", False)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def run_ocr_tool(self) -> None:
+        self.hide()
+
+        def worker() -> None:
+            text = self.app.run_ocr()
+            self.task_done.emit(
+                f"OCR: copied {len(text)} characters" if text else "OCR: no text",
+                True)
+
+        QTimer.singleShot(300, lambda: threading.Thread(target=worker, daemon=True).start())
+
+    def pick_color_tool(self) -> None:
+        # The portal color picker needs its own GLib loop; a subprocess
+        # keeps that out of this process entirely.
+        def worker() -> None:
+            result = subprocess.run(
+                [sys.executable, "-m", "linuxshot", "pick-color"],
+                capture_output=True, text=True, timeout=180)
+            color = result.stdout.strip()
+            self.task_done.emit(
+                f"Color copied: {color}" if result.returncode == 0 and color
+                else "Color picking cancelled", False)
+
+        self.statusBar().showMessage("Click a pixel anywhere on screen...")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def pin_last(self) -> None:
+        entries = self.history.get_entries(limit=1)
+        if not entries or not os.path.isfile(entries[0].filepath):
+            self.statusBar().showMessage("Nothing to pin yet", 4000)
+            return
+        self.pin_file(entries[0].filepath)
+
+    def pin_file(self, filepath: str) -> None:
+        pin = PinWindow(filepath)
+        pin.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._pins.append(pin)
+        pin.destroyed.connect(lambda: self._pins.remove(pin) if pin in self._pins else None)
+        pin.show()
 
     def _on_task_done(self, message: str, reshow: bool) -> None:
         if reshow:

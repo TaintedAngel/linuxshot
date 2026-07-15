@@ -21,6 +21,9 @@ Capture a region, fullscreen, or window with a single keypress, auto-upload to *
 - **Annotation editor** after every capture: arrows, boxes, text, highlights, numbered steps, crop, and **blur** for redacting secrets before anything leaves your machine
 - Upload to **ImgBB, Imgur, catbox.moe, 0x0.st**, or any self-hosted service via a custom HTTP uploader
 - Delete links are kept in history, so an upload is never irreversible
+- **OCR**: capture a region, get its text on the clipboard (tesseract)
+- **Color picker** (desktop portal, hyprpicker fallback) and **pin to screen** for floating reference images
+- History with thumbnails, live preview pane, and per-entry actions
 - ShareX-style main window: action sidebar, searchable capture history with thumbnails, settings
 - Global keyboard shortcuts on KDE Plasma via KGlobalAccel
 - Desktop notifications on capture and upload
@@ -89,6 +92,9 @@ linuxshot region          Capture a selected region
 linuxshot fullscreen      Capture the entire screen
 linuxshot window          Capture the active window
 linuxshot edit <file>     Annotate an image in the editor
+linuxshot ocr             Capture a region and copy its text
+linuxshot pick-color      Pick a pixel color from the screen
+linuxshot pin [file]      Pin an image to the screen, always on top
 linuxshot upload <file>   Upload a file
 linuxshot upload-last     Upload the most recent capture
 linuxshot history         Show recent capture history
@@ -255,6 +261,7 @@ For services that answer with a plain-text URL, use `"response_type": "text"`.
 - `imgbb_api_key` - your ImgBB API key (get one at https://api.imgbb.com/)
 - `auto_upload` - upload after every capture (default: false)
 - `open_editor_after_capture` - annotate before the after-capture steps run (default: true)
+- `ocr_language` - tesseract language for `linuxshot ocr` (default: tesseract's own)
 - `screenshot_dir` - save location (default: `~/Pictures/LinuxShot`)
 - `image_format` - `png`, `jpg`, or `webp` (default: png)
 - `copy_image_to_clipboard` - copy image to clipboard (default: true)

@@ -103,6 +103,42 @@ class App:
             notify.notify_upload_success(result.url)
         return result.url
 
+    def run_ocr(self) -> str | None:
+        """Capture a region and put the recognized text on the clipboard.
+        Returns the text, or None if cancelled / nothing found.
+        """
+        import tempfile
+
+        from .ocr import OcrError, extract_text
+
+        with tempfile.TemporaryDirectory(prefix="linuxshot-ocr-") as tmp:
+            try:
+                result = self.capture_engine.capture(
+                    CaptureMode.REGION, output_path=os.path.join(tmp, "ocr.png"))
+            except CaptureError as e:
+                notify.notify_error(str(e))
+                print(f"error: {e}", file=sys.stderr)
+                return None
+            if result is None:
+                return None
+            try:
+                text = extract_text(result.filepath, self.config["ocr_language"])
+            except OcrError as e:
+                notify.notify_error(str(e))
+                print(f"error: {e}", file=sys.stderr)
+                return None
+
+        if not text:
+            notify.send("OCR", "No text found in the selection.")
+            print("No text found.", file=sys.stderr)
+            return None
+
+        if clipboard.copy_text(text):
+            lines = text.count("\n") + 1
+            notify.send("OCR", f"Copied {len(text)} characters ({lines} lines).")
+        print(text)
+        return text
+
     def upload_last(self) -> str | None:
         entries = self.history.get_entries(limit=1)
         if not entries:

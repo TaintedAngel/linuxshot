@@ -40,6 +40,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file", help="Path to the image to edit")
     p.set_defaults(func=cmd_edit)
 
+    p = sub.add_parser("ocr", help="Capture a region and copy its text (tesseract)")
+    p.set_defaults(func=cmd_ocr)
+
+    p = sub.add_parser("pick-color", help="Pick a pixel color from the screen")
+    p.set_defaults(func=cmd_pick_color)
+
+    p = sub.add_parser("pin", help="Pin an image to the screen, always on top")
+    p.add_argument("file", nargs="?", default="",
+                   help="Image to pin (default: the most recent capture)")
+    p.set_defaults(func=cmd_pin)
+
     p = sub.add_parser("upload", help="Upload a file")
     p.add_argument("file", help="Path to the file to upload")
     p.add_argument("-s", "--service", metavar="NAME",
@@ -112,6 +123,50 @@ def cmd_edit(args) -> int:
     outcome = run_editor_standalone(args.file)
     if outcome == "done":
         print(f"Saved: {args.file}")
+    return 0
+
+
+def cmd_ocr(args) -> int:
+    from .app import App
+    return 0 if App().run_ocr() else 1
+
+
+def cmd_pick_color(args) -> int:
+    from . import clipboard, notify
+    from .colorpick import pick_color
+
+    color = pick_color()
+    if not color:
+        print("error: color picking cancelled or unsupported on this desktop.\n"
+              "KDE/GNOME need xdg-desktop-portal; wlroots compositors need "
+              "hyprpicker.", file=sys.stderr)
+        return 1
+    print(color)
+    if clipboard.copy_text(color):
+        notify.send("Color picked", f"{color} copied to clipboard.")
+    return 0
+
+
+def cmd_pin(args) -> int:
+    import os
+
+    filepath = args.file
+    if not filepath:
+        from .history import History
+        entries = History().get_entries(limit=1)
+        if not entries:
+            print("error: no captures in history to pin.", file=sys.stderr)
+            return 1
+        filepath = entries[0].filepath
+    if not os.path.isfile(filepath):
+        print(f"error: no such file: {filepath}", file=sys.stderr)
+        return 1
+    try:
+        from .gui.pin import run_pin_standalone
+    except ImportError as e:
+        print(f"error: pinning requires PySide6: {e}", file=sys.stderr)
+        return 1
+    run_pin_standalone(filepath)
     return 0
 
 
@@ -276,6 +331,10 @@ def cmd_check(args) -> int:
 
     print("\nCommon tools:")
     _print_dep("notify-send", deps["notify-send"], "desktop notifications (libnotify)")
+
+    print("\nOptional tools:")
+    _print_dep("tesseract", deps["tesseract"], "OCR (linuxshot ocr)")
+    _print_dep("hyprpicker", deps["hyprpicker"], "color picker fallback on wlroots")
 
     print("\nPython packages:")
     for name, module in (("requests", "requests"), ("PySide6", "PySide6"),

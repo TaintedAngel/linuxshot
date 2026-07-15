@@ -71,15 +71,19 @@ class Capture:
         if self.display_server == DisplayServer.WAYLAND:
             self._wayland_backend = detect_wayland_backend()
 
-    def capture(self, mode: CaptureMode) -> CaptureResult | None:
+    def capture(self, mode: CaptureMode,
+                output_path: str | None = None) -> CaptureResult | None:
         """Take a screenshot. Returns None if the user cancelled,
         raises CaptureError if no backend could produce a file.
+
+        *output_path* overrides the configured screenshots directory,
+        for captures that shouldn't land there (OCR scratch files etc.).
         """
         delay = self.config["capture_delay"]
         if delay > 0:
             time.sleep(delay)
 
-        output = self._output_path()
+        output = output_path or self._output_path()
 
         if self.display_server == DisplayServer.WAYLAND:
             ok = self._wayland_capture(mode, output)

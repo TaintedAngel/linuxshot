@@ -19,6 +19,8 @@ optdepends=(
     'grim: wlroots screenshot capture'
     'slurp: wlroots region selection'
     'wl-clipboard: Wayland clipboard support'
+    'tesseract: OCR text extraction (linuxshot ocr)'
+    'hyprpicker: color picker on wlroots compositors'
     'maim: X11 screenshot capture'
     'xdotool: X11 window detection'
     'xclip: X11 clipboard support'

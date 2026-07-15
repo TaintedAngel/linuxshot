@@ -5,11 +5,13 @@ listens on DBus for the KGlobalAccel shortcuts registered by
 linuxshot.shortcuts.
 """
 
+import os
 import signal
+import subprocess
 import sys
 import threading
 
-from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..app import App
@@ -18,6 +20,7 @@ from ..config import Config
 from .editor import EditorBridge
 from .icons import app_icon, ensure_icon_installed
 from .main_window import MainWindow
+from .pin import PinWindow
 
 SHORTCUT_ACTIONS = {
     "CaptureRegion": CaptureMode.REGION,
@@ -38,6 +41,7 @@ class Tray(QObject):
         self.config = Config.get()
         self.editor_bridge = EditorBridge()
         self._window: MainWindow | None = None
+        self._pins: list[PinWindow] = []
 
         self.icon = QSystemTrayIcon(app_icon())
         self.icon.setToolTip("LinuxShot")
@@ -61,6 +65,18 @@ class Tray(QObject):
         ):
             action = menu.addAction(label)
             action.triggered.connect(lambda _=False, m=mode: self.capture(m))
+
+        menu.addSeparator()
+        ocr = menu.addAction("OCR Region")
+        ocr.triggered.connect(
+            lambda: threading.Thread(target=self.app.run_ocr, daemon=True).start()
+        )
+
+        pick = menu.addAction("Pick Color")
+        pick.triggered.connect(self._pick_color)
+
+        pin = menu.addAction("Pin Last Capture")
+        pin.triggered.connect(self._pin_last)
 
         menu.addSeparator()
         upload_last = menu.addAction("Upload Last Capture")
@@ -96,6 +112,26 @@ class Tray(QObject):
             target=self.app.run_capture, args=(mode,),
             kwargs={"editor": editor}, daemon=True,
         ).start()
+
+    def _pick_color(self) -> None:
+        # Runs in a subprocess: the portal picker wants its own GLib
+        # loop, and this process already runs one for the shortcuts.
+        def worker() -> None:
+            subprocess.run(
+                [sys.executable, "-m", "linuxshot", "pick-color"],
+                capture_output=True, timeout=180)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _pin_last(self) -> None:
+        entries = self.app.history.get_entries(limit=1)
+        if not entries or not os.path.isfile(entries[0].filepath):
+            return
+        pin = PinWindow(entries[0].filepath)
+        pin.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._pins.append(pin)
+        pin.destroyed.connect(lambda: self._pins.remove(pin) if pin in self._pins else None)
+        pin.show()
 
     def show_window(self) -> None:
         window = self._get_window()

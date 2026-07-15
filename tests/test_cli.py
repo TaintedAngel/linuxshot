@@ -11,12 +11,18 @@ def parse(*argv):
 
 def test_parser_accepts_all_commands():
     for cmd in ("region", "fullscreen", "window", "upload-last", "history",
-                "config", "tray", "gui", "setup", "update", "check"):
+                "config", "tray", "gui", "setup", "update", "check",
+                "ocr", "pick-color", "pin"):
         args = parse(cmd)
         assert args.command == cmd
 
     args = parse("upload", "/tmp/x.png")
     assert args.file == "/tmp/x.png"
+
+    args = parse("edit", "/tmp/x.png")
+    assert args.file == "/tmp/x.png"
+
+    assert parse("pin").file == ""  # defaults to most recent capture
 
 
 def test_config_set_parses_json_values(capsys):
